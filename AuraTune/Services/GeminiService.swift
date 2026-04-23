@@ -4,11 +4,11 @@ import Foundation
 class GeminiService {
     static let shared = GeminiService()
     
-    /// Gemini API Key
-    private let apiKey = "AIzaSyC9YlDHFP3TrB3iViWOzUU7wAmUR6rGMI8"
+    /// Gemini API Key (loaded from Secrets.swift, which is gitignored)
+    private let apiKey = Secrets.geminiAPIKey
     
     func getSongSuggestion(genres: [String], time: Date, language: String = "Turkish") async throws -> SongSuggestion {
-        let urlString = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=\(apiKey)"
+        let urlString = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=\(apiKey)"
         guard let url = URL(string: urlString) else { throw URLError(.badURL) }
         
         // Construct prompt depending on language (so Gemini understands the context better)
@@ -58,6 +58,9 @@ class GeminiService {
         let (data, response) = try await URLSession.shared.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+            let body = String(data: data, encoding: .utf8) ?? "<no body>"
+            print("Gemini API error: status=\(status) body=\(body)")
             throw URLError(.badServerResponse)
         }
         

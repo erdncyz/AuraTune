@@ -29,7 +29,12 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .top) {
-                Color.auraSurface.ignoresSafeArea()
+                Color.auraSurface
+                // Hero gradient start color extends behind status bar and pull-down area
+                Color(hex: "994A1A")
+                    .frame(height: 250)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .ignoresSafeArea(edges: .top)
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {
@@ -60,6 +65,8 @@ struct HomeView: View {
             }
             .navigationBarHidden(true)
             .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar(.visible, for: .tabBar)
+            .toolbarBackground(.visible, for: .tabBar)
             .preferredColorScheme(.dark)
         }
         .preferredColorScheme(.light)

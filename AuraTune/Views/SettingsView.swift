@@ -12,7 +12,12 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .top) {
-                Color.auraSurface.ignoresSafeArea()
+                Color.auraSurface
+                // Hero gradient start color extends behind status bar and pull-down area
+                Color(hex: "994A1A")
+                    .frame(height: 240)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    .ignoresSafeArea(edges: .top)
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {
@@ -205,6 +210,8 @@ struct SettingsView: View {
             .navigationBarHidden(true)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .preferredColorScheme(.dark)
+            .toolbar(.visible, for: .tabBar)
+            .toolbarBackground(.visible, for: .tabBar)
             .onAppear {
                 if let profile = supabaseManager.userProfile {
                     viewModel.loadProfile(profile)
