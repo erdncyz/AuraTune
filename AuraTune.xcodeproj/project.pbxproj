@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		BA7DB5922F9A7C680013F54D /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = BA7DB5912F9A7C680013F54D /* Supabase */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		BA7DB5582F9A74CB0013F54D /* AuraTune.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AuraTune.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BA7DB5922F9A7C680013F54D /* Supabase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +70,7 @@
 			);
 			name = AuraTune;
 			packageProductDependencies = (
+				BA7DB5912F9A7C680013F54D /* Supabase */,
 			);
 			productName = AuraTune;
 			productReference = BA7DB5582F9A74CB0013F54D /* AuraTune.app */;
@@ -91,9 +97,13 @@
 			knownRegions = (
 				en,
 				Base,
+				tr,
 			);
 			mainGroup = BA7DB54F2F9A74CB0013F54D;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				BA7DB5902F9A7C680013F54D /* XCRemoteSwiftPackageReference "supabase-swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BA7DB5592F9A74CB0013F54D /* Products */;
 			projectDirPath = "";
@@ -332,6 +342,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		BA7DB5902F9A7C680013F54D /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		BA7DB5912F9A7C680013F54D /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA7DB5902F9A7C680013F54D /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = BA7DB5502F9A74CB0013F54D /* Project object */;
 }
