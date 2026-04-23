@@ -211,6 +211,7 @@ struct SettingsView: View {
             .toolbarColorScheme(.dark, for: .navigationBar)
             .preferredColorScheme(.dark)
             .toolbar(.visible, for: .tabBar)
+            .toolbarBackground(Color.auraSurface, for: .tabBar)
             .toolbarBackground(.visible, for: .tabBar)
             .onAppear {
                 if let profile = supabaseManager.userProfile {

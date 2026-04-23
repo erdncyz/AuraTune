@@ -23,8 +23,12 @@ class NotificationManager: NSObject, ObservableObject {
     
     /// Schedules a local morning notification with a requested song suggestion
     func scheduleMorningNotification(at time: Date, suggestion: SongSuggestion, platform: String) {
+        let isEnglish = LanguageManager.shared.currentLanguage == "en"
+
         let content = UNMutableNotificationContent()
-        content.title = "🎵 Günaydın! İşte Günün Şarkısı"
+        content.title = isEnglish
+            ? "🎵 Good Morning! Your Daily Song"
+            : "🎵 Günaydın! İşte Günün Şarkısı"
         content.body = "\(suggestion.message)\n\(suggestion.artist) - \(suggestion.title)"
         content.sound = .default
         

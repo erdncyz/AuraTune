@@ -66,6 +66,7 @@ struct HomeView: View {
             .navigationBarHidden(true)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar(.visible, for: .tabBar)
+            .toolbarBackground(Color.auraSurface, for: .tabBar)
             .toolbarBackground(.visible, for: .tabBar)
             .preferredColorScheme(.dark)
         }

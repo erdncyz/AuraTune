@@ -58,9 +58,11 @@ class GeminiService {
         let (data, response) = try await URLSession.shared.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            #if DEBUG
             let status = (response as? HTTPURLResponse)?.statusCode ?? -1
             let body = String(data: data, encoding: .utf8) ?? "<no body>"
             print("Gemini API error: status=\(status) body=\(body)")
+            #endif
             throw URLError(.badServerResponse)
         }
         
