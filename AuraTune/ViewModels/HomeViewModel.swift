@@ -40,7 +40,8 @@ class HomeViewModel: ObservableObject {
             let suggestion = try await GeminiService.shared.getSongSuggestion(
                 genres: profile.genres,
                 time: Date(),
-                language: LanguageManager.shared.currentLanguageFullName
+                responseLanguage: LanguageManager.shared.currentLanguageFullName,
+                songLanguagePreference: profile.songLanguage
             )
             self.dailySuggestion = suggestion
             cacheSuggestion(suggestion)

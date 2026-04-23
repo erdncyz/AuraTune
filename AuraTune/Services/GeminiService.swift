@@ -7,8 +7,18 @@ class GeminiService {
 
     // MARK: - Public
 
-    func getSongSuggestion(genres: [String], time: Date, language: String = "Turkish") async throws -> SongSuggestion {
-        let prompt = buildPrompt(genres: genres, time: time, language: language)
+    func getSongSuggestion(
+        genres: [String],
+        time: Date,
+        responseLanguage: String = "Turkish",
+        songLanguagePreference: SongLanguagePreference = .random
+    ) async throws -> SongSuggestion {
+        let prompt = buildPrompt(
+            genres: genres,
+            time: time,
+            responseLanguage: responseLanguage,
+            songLanguagePreference: songLanguagePreference
+        )
         #if DEBUG
         print("[AIService] Primary: Groq → llama-3.3-70b-versatile")
         #endif
@@ -22,8 +32,18 @@ class GeminiService {
         }
     }
 
-    func getSongSuggestionForMood(mood: String, genres: [String], language: String = "Turkish") async throws -> SongSuggestion {
-        let prompt = buildMoodPrompt(mood: mood, genres: genres, language: language)
+    func getSongSuggestionForMood(
+        mood: String,
+        genres: [String],
+        responseLanguage: String = "Turkish",
+        songLanguagePreference: SongLanguagePreference = .random
+    ) async throws -> SongSuggestion {
+        let prompt = buildMoodPrompt(
+            mood: mood,
+            genres: genres,
+            responseLanguage: responseLanguage,
+            songLanguagePreference: songLanguagePreference
+        )
         #if DEBUG
         print("[AIService] Discover request — mood: \(mood)")
         print("[AIService] Primary: Groq → llama-3.3-70b-versatile")
@@ -46,7 +66,12 @@ class GeminiService {
         case parseFailure
     }
 
-    private func buildPrompt(genres: [String], time: Date, language: String) -> String {
+    private func buildPrompt(
+        genres: [String],
+        time: Date,
+        responseLanguage: String,
+        songLanguagePreference: SongLanguagePreference
+    ) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .long
         formatter.timeStyle = .short
@@ -60,19 +85,25 @@ class GeminiService {
         User's favorite genres: \(genreString).
         Variety seed: \(seed). Use this to ensure a unique, non-repeated recommendation.
         Pick a song with a \(randomMood) feel.
+                \(songLanguagePreference.promptInstruction)
         Recommend a DIFFERENT specific song each time — do not repeat popular or obvious choices.
         Explore deep cuts, hidden gems, or lesser-known tracks when possible.
-        SADECE aşağıdaki JSON formatında ve SADECE \(language) dilinde SOHBET MESAJI (message) oluşturarak yanıt ver. Başlık ve sanatçı orijinal kalabilir.
+                SADECE aşağıdaki JSON formatında ve SADECE \(responseLanguage) dilinde SOHBET MESAJI (message) oluşturarak yanıt ver. Başlık ve sanatçı orijinal kalabilir.
         Please return ONLY in this JSON format:
         {
           "title": "Song Title",
           "artist": "Artist name",
-          "message": "A short and energetic good morning message in \(language)"
+                    "message": "A short and energetic good morning message in \(responseLanguage)"
         }
         """
     }
 
-    private func buildMoodPrompt(mood: String, genres: [String], language: String) -> String {
+        private func buildMoodPrompt(
+                mood: String,
+                genres: [String],
+                responseLanguage: String,
+                songLanguagePreference: SongLanguagePreference
+        ) -> String {
         let genreString = genres.isEmpty ? "any genre" : genres.joined(separator: ", ")
         let seed = Int.random(in: 1...9999)
         let eras = ["60s", "70s", "80s", "90s", "2000s", "2010s", "recent"]
@@ -81,14 +112,15 @@ class GeminiService {
         The user is currently feeling: \(mood).
         User's favorite genres: \(genreString).
         Variety seed: \(seed). Use this to ensure a unique, non-repeated recommendation.
+                \(songLanguagePreference.promptInstruction)
         Try recommending a track from the \(randomEra) era if it fits the mood.
         Pick a DIFFERENT song each time — avoid repeating the same artist or song. Explore unexpected, creative choices.
-        SADECE aşağıdaki JSON formatında ve SADECE \(language) dilinde SOHBET MESAJI (message) oluşturarak yanıt ver. Başlık ve sanatçı orijinal kalabilir.
+                SADECE aşağıdaki JSON formatında ve SADECE \(responseLanguage) dilinde SOHBET MESAJI (message) oluşturarak yanıt ver. Başlık ve sanatçı orijinal kalabilir.
         Please return ONLY in this JSON format:
         {
           "title": "Song Title",
           "artist": "Artist name",
-          "message": "A short personalized message matching the mood in \(language)"
+                    "message": "A short personalized message matching the mood in \(responseLanguage)"
         }
         """
     }

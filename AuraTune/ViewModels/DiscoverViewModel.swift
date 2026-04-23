@@ -31,23 +31,28 @@ class DiscoverViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String? = nil
 
-    func fetchSuggestion(genres: [String], language: String) async {
+    func fetchSuggestion(
+        genres: [String],
+        interfaceLanguage: String,
+        songLanguagePreference: SongLanguagePreference
+    ) async {
         guard let mood = selectedMood else { return }
         isLoading = true
         suggestion = nil
         errorMessage = nil
 
-        let moodLabel = language == "en" ? mood.nameEn : mood.nameTr
+        let moodLabel = interfaceLanguage == "en" ? mood.nameEn : mood.nameTr
 
         do {
             let result = try await GeminiService.shared.getSongSuggestionForMood(
                 mood: moodLabel,
                 genres: genres,
-                language: language == "en" ? "English" : "Turkish"
+                responseLanguage: interfaceLanguage == "en" ? "English" : "Turkish",
+                songLanguagePreference: songLanguagePreference
             )
             self.suggestion = result
         } catch {
-            self.errorMessage = language == "en"
+            self.errorMessage = interfaceLanguage == "en"
                 ? "Could not get suggestion: \(error.localizedDescription)"
                 : "Öneri alınamadı: \(error.localizedDescription)"
         }

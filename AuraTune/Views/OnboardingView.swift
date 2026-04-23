@@ -43,6 +43,36 @@ struct OnboardingView: View {
                                 }
                             }
                             .padding(.top, 8)
+
+                            sectionCard(icon: "music.mic", iconColor: Color(hex: "5AC8FA"),
+                                        title: isEnglish ? "Song Language" : "Şarkı Dili") {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text(isEnglish
+                                         ? "Choose the language of recommended songs"
+                                         : "Önerilen şarkıların dilini seç")
+                                        .font(.subheadline)
+                                        .foregroundColor(.auraOnSurface.opacity(0.7))
+
+                                    HStack(spacing: 10) {
+                                        ForEach(SongLanguagePreference.allCases) { option in
+                                            let isSelected = viewModel.selectedSongLanguage == option
+                                            Button(action: { viewModel.selectedSongLanguage = option }) {
+                                                Text(option.title(isEnglish: isEnglish))
+                                                    .font(.caption.weight(.semibold))
+                                                    .foregroundColor(isSelected ? .white : .auraOnSurface)
+                                                    .frame(maxWidth: .infinity)
+                                                    .padding(.vertical, 12)
+                                                    .background(isSelected ? Color.auraPrimary : Color.auraSurface)
+                                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                                    .overlay(
+                                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                                            .stroke(isSelected ? Color.auraPrimary : Color.auraOnSurface.opacity(0.1), lineWidth: 1)
+                                                    )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                             
                             // User Name
                             sectionCard(icon: "person.fill", iconColor: Color(hex: "F4845F"),
@@ -78,7 +108,9 @@ struct OnboardingView: View {
                             
                             // Genre selection
                             sectionCard(icon: "music.note.list", iconColor: Color(hex: "34C759"),
-                                        title: isEnglish ? "Favorite Genres (Max 10)" : "Sevdiğin Türler (Maks 10)") {
+                                        title: isEnglish
+                                            ? "Favorite Genres (Max \(Profile.maxGenreSelection))"
+                                            : "Sevdiğin Türler (Maks \(Profile.maxGenreSelection))") {
                                 ScrollView(.horizontal, showsIndicators: true) {
                                     LazyHGrid(rows: [GridItem(.fixed(36)), GridItem(.fixed(36))], spacing: 10) {
                                         ForEach(viewModel.availableGenres, id: \.self) { genre in

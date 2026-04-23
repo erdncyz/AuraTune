@@ -4,8 +4,12 @@ struct DiscoverView: View {
     @EnvironmentObject var supabaseManager: SupabaseManager
     @EnvironmentObject var languageManager: LanguageManager
     @StateObject private var viewModel = DiscoverViewModel()
+    @State private var selectedSongLanguageOverride: SongLanguagePreference? = nil
 
     var isEnglish: Bool { languageManager.currentLanguage == "en" }
+    var selectedSongLanguage: SongLanguagePreference {
+        selectedSongLanguageOverride ?? supabaseManager.userProfile?.songLanguage ?? .random
+    }
 
     let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
 
@@ -24,11 +28,12 @@ struct DiscoverView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .ignoresSafeArea(edges: .top)
 
-                VStack(spacing: -8) {
+                VStack(spacing: 0) {
                     heroHeader
                     
                     ScrollView(showsIndicators: false) {
                         VStack(spacing: 20) {
+                            songLanguageSection
                             moodPickerSection
                             fetchButton
                             if let suggestion = viewModel.suggestion {
@@ -39,7 +44,7 @@ struct DiscoverView: View {
                             }
                         }
                         .padding(.horizontal, 16)
-                        .padding(.top, 0)
+                        .padding(.top, 12)
                         .padding(.bottom, 40)
                     }
                 }
@@ -73,10 +78,67 @@ struct DiscoverView: View {
                     .foregroundColor(.white.opacity(0.75))
             }
             .padding(.leading, 20)
-            .padding(.bottom, 0)
+            .padding(.bottom, 28)
         }
         .frame(height: 260)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    // MARK: - Song Language
+    private var songLanguageSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Color(hex: "5AC8FA").opacity(0.14))
+                        .frame(width: 34, height: 34)
+                    Image(systemName: "music.mic")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(Color(hex: "5AC8FA"))
+                }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(isEnglish ? "Song Language" : "Şarkı Dili")
+                        .font(.headline)
+                        .foregroundColor(.auraOnSurface)
+                    Text(isEnglish
+                         ? "Choose the language for this discovery"
+                         : "Bu öneri için şarkı dilini seç")
+                        .font(.caption)
+                        .foregroundColor(.auraOnSurface.opacity(0.65))
+                }
+            }
+
+            HStack(spacing: 10) {
+                ForEach(SongLanguagePreference.allCases) { option in
+                    let isSelected = selectedSongLanguage == option
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            selectedSongLanguageOverride = option
+                            viewModel.suggestion = nil
+                            viewModel.errorMessage = nil
+                        }
+                    }) {
+                        Text(option.title(isEnglish: isEnglish))
+                            .font(.caption.weight(.semibold))
+                            .foregroundColor(isSelected ? .white : .auraOnSurface)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(isSelected ? Color.auraTertiary : Color.auraSurface)
+                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                    .stroke(isSelected ? Color.auraTertiary : Color.auraOnSurface.opacity(0.1), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 4)
     }
 
     // MARK: - Mood Picker
@@ -131,11 +193,12 @@ struct DiscoverView: View {
     // MARK: - Fetch Button
     private var fetchButton: some View {
         Button(action: {
-            let genres = supabaseManager.userProfile?.genres ?? []
+            let profile = supabaseManager.userProfile
             Task {
                 await viewModel.fetchSuggestion(
-                    genres: genres,
-                    language: languageManager.currentLanguage
+                    genres: profile?.genres ?? [],
+                    interfaceLanguage: languageManager.currentLanguage,
+                    songLanguagePreference: selectedSongLanguage
                 )
             }
         }) {
@@ -183,15 +246,27 @@ struct DiscoverView: View {
         VStack(alignment: .leading, spacing: 0) {
             // Mood badge
             if let mood = viewModel.selectedMood {
-                HStack(spacing: 6) {
-                    Text(mood.emoji)
-                    Text(isEnglish ? mood.nameEn : mood.nameTr)
+                HStack(spacing: 8) {
+                    HStack(spacing: 6) {
+                        Text(mood.emoji)
+                        Text(isEnglish ? mood.nameEn : mood.nameTr)
+                            .font(.caption.bold())
+                            .foregroundColor(mood.color)
+                    }
+
+                    Text(selectedSongLanguage.title(isEnglish: isEnglish))
                         .font(.caption.bold())
-                        .foregroundColor(mood.color)
+                        .foregroundColor(.auraTertiary)
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 5)
-                .background(mood.color.opacity(0.12))
+                .background(
+                    LinearGradient(
+                        colors: [mood.color.opacity(0.12), Color.auraTertiary.opacity(0.12)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
                 .clipShape(Capsule())
                 .padding(.horizontal, 16)
                 .padding(.top, 16)
@@ -287,11 +362,12 @@ struct DiscoverView: View {
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
             Button(action: {
-                let genres = supabaseManager.userProfile?.genres ?? []
+                let profile = supabaseManager.userProfile
                 Task {
                     await viewModel.fetchSuggestion(
-                        genres: genres,
-                        language: languageManager.currentLanguage
+                        genres: profile?.genres ?? [],
+                        interfaceLanguage: languageManager.currentLanguage,
+                        songLanguagePreference: selectedSongLanguage
                     )
                 }
             }) {

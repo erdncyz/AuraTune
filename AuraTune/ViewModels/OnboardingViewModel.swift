@@ -8,6 +8,7 @@ class OnboardingViewModel: ObservableObject {
     @Published var selectedGenres: Set<String> = []
     @Published var userName: String = ""
     @Published var selectedPlatform: String = "Spotify"
+    @Published var selectedSongLanguage: SongLanguagePreference = .random
     
     @Published var isSaving = false
     
@@ -24,7 +25,7 @@ class OnboardingViewModel: ObservableObject {
         if selectedGenres.contains(genre) {
             selectedGenres.remove(genre)
         } else {
-            if selectedGenres.count < 3 {
+            if selectedGenres.count < Profile.maxGenreSelection {
                 selectedGenres.insert(genre)
             }
         }
@@ -36,7 +37,8 @@ class OnboardingViewModel: ObservableObject {
             name: userName,
             wakeUpTime: wakeUpTime,
             genres: Array(selectedGenres),
-            platform: selectedPlatform
+            platform: selectedPlatform,
+            songLanguage: selectedSongLanguage
         )
         
         await SupabaseManager.shared.saveProfile(profile)

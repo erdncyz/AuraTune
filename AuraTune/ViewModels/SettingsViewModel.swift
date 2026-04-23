@@ -8,6 +8,7 @@ class SettingsViewModel: ObservableObject {
     @Published var selectedGenres: Set<String> = []
     @Published var userName: String = ""
     @Published var selectedPlatform: String = "Spotify"
+    @Published var selectedSongLanguage: SongLanguagePreference = .random
     @Published var isSaving = false
     @Published var hasChanges = false
 
@@ -15,6 +16,7 @@ class SettingsViewModel: ObservableObject {
     private var originalTime: Date = Date()
     private var originalGenres: Set<String> = []
     private var originalPlatform: String = "Spotify"
+    private var originalSongLanguage: SongLanguagePreference = .random
     
     let availableGenres = [
         "Pop", "Rock", "Lo-Fi", "Jazz", "Classical", "Hip-Hop", "Electronic", "Indie",
@@ -30,17 +32,20 @@ class SettingsViewModel: ObservableObject {
         self.wakeUpTime = profile.wakeUpTime
         self.selectedGenres = Set(profile.genres)
         self.selectedPlatform = profile.platform
+        self.selectedSongLanguage = profile.songLanguage
         // Store originals
         self.originalName = profile.name
         self.originalTime = profile.wakeUpTime
         self.originalGenres = Set(profile.genres)
         self.originalPlatform = profile.platform
+        self.originalSongLanguage = profile.songLanguage
         self.hasChanges = false
     }
 
     func checkChanges() {
         hasChanges = userName != originalName
             || selectedPlatform != originalPlatform
+            || selectedSongLanguage != originalSongLanguage
             || selectedGenres != originalGenres
             || abs(wakeUpTime.timeIntervalSince(originalTime)) > 60
     }
@@ -49,7 +54,7 @@ class SettingsViewModel: ObservableObject {
         if selectedGenres.contains(genre) {
             selectedGenres.remove(genre)
         } else {
-            if selectedGenres.count < 10 {
+            if selectedGenres.count < Profile.maxGenreSelection {
                 selectedGenres.insert(genre)
             }
         }
@@ -61,7 +66,8 @@ class SettingsViewModel: ObservableObject {
             name: userName,
             wakeUpTime: wakeUpTime,
             genres: Array(selectedGenres),
-            platform: selectedPlatform
+            platform: selectedPlatform,
+            songLanguage: selectedSongLanguage
         )
 
         await SupabaseManager.shared.saveProfile(updatedProfile)
@@ -78,6 +84,7 @@ class SettingsViewModel: ObservableObject {
         originalTime = wakeUpTime
         originalGenres = selectedGenres
         originalPlatform = selectedPlatform
+        originalSongLanguage = selectedSongLanguage
         hasChanges = false
         isSaving = false
     }
