@@ -6,28 +6,28 @@ struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
     @Environment(\.dismiss) var dismiss
     @State private var showSavedBadge = false
+    @State private var showAbout = false
 
     var isEnglish: Bool { languageManager.currentLanguage == "en" }
 
     var body: some View {
         NavigationStack {
             ZStack(alignment: .top) {
-                Color.auraSurface
-                // Hero gradient start color extends behind status bar and pull-down area
-                Color(hex: "994A1A")
-                    .frame(height: 240)
+                Color.auraSurface.ignoresSafeArea()
+                LinearGradient(
+                    colors: [Color(hex: "994A1A"), Color.auraPrimary, Color(hex: "F4845F").opacity(0.8)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                    .frame(height: 300)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .ignoresSafeArea(edges: .top)
 
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 0) {
-
-                        // ── Hero Banner ──────────────────────────────────
-                        heroHeader
-
-                        // ── Content Cards ────────────────────────────────
+                VStack(spacing: -8) {
+                    heroHeader
+                    
+                    ScrollView(showsIndicators: false) {
                         VStack(spacing: 16) {
-
                             // Language
                             sectionCard(icon: "globe", iconColor: Color(hex: "7C6AF7"),
                                         title: isEnglish ? "Language" : "Dil") {
@@ -44,6 +44,7 @@ struct SettingsView: View {
                                     .frame(width: 110)
                                 }
                             }
+                            .padding(.top, 8)
 
                             // Name
                             sectionCard(icon: "person.fill", iconColor: Color(hex: "F4845F"),
@@ -65,18 +66,22 @@ struct SettingsView: View {
                             // Wake up time
                             sectionCard(icon: "alarm.fill", iconColor: Color(hex: "FF9E66"),
                                         title: isEnglish ? "Wake Up Time" : "Uyanma Saatin") {
-                                DatePicker("", selection: $viewModel.wakeUpTime,
-                                           displayedComponents: .hourAndMinute)
-                                    .datePickerStyle(.wheel)
-                                    .labelsHidden()
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .frame(height: 130)
-                                    .clipped()
+                                HStack {
+                                    Text(isEnglish ? "Wake Up Time" : "Uyanma Saati")
+                                        .font(.subheadline)
+                                        .foregroundColor(.auraOnSurface.opacity(0.7))
+                                    Spacer()
+                                    DatePicker("", selection: $viewModel.wakeUpTime,
+                                               displayedComponents: .hourAndMinute)
+                                        .datePickerStyle(.compact)
+                                        .labelsHidden()
+                                        .tint(.auraPrimary)
+                                }
                             }
 
                             // Genres
                             sectionCard(icon: "music.note.list", iconColor: Color(hex: "34C759"),
-                                        title: isEnglish ? "Favorite Genres (Max 3)" : "Sevdiğin Türler (Maks 3)") {
+                                        title: isEnglish ? "Favorite Genres (Max 10)" : "Sevdiğin Türler (Maks 10)") {
                                 ScrollView(.horizontal, showsIndicators: true) {
                                     LazyHGrid(
                                         rows: [GridItem(.fixed(36)), GridItem(.fixed(36))],
@@ -119,7 +124,7 @@ struct SettingsView: View {
 
                             // Platform
                             sectionCard(icon: "headphones", iconColor: Color(hex: "FF2D55"),
-                                        title: isEnglish ? "Music Platform" : "Favori Müzik Uygulaман") {
+                                        title: isEnglish ? "Music Platform" : "Müzik Uygulaması") {
                                 VStack(spacing: 10) {
                                     ForEach(viewModel.availablePlatforms, id: \.self) { platform in
                                         let isSelected = viewModel.selectedPlatform == platform
@@ -160,59 +165,102 @@ struct SettingsView: View {
                                 }
                             }
 
-                            // Save Button
-                            Button(action: {
-                                Task {
-                                    await viewModel.saveSettings()
-                                    withAnimation { showSavedBadge = true }
-                                    try? await Task.sleep(nanoseconds: 2_000_000_000)
-                                    withAnimation { showSavedBadge = false }
-                                }
-                            }) {
-                                HStack(spacing: 8) {
-                                    if viewModel.isSaving {
-                                        ProgressView().tint(.white)
-                                    } else if showSavedBadge {
-                                        Image(systemName: "checkmark.circle.fill")
-                                        Text(isEnglish ? "Saved!" : "Kaydedildi!")
-                                    } else {
-                                        Image(systemName: "square.and.arrow.down.fill")
-                                        Text(isEnglish ? "Save Changes" : "Değişiklikleri Kaydet")
+                            // About
+                            Button(action: { showAbout = true }) {
+                                HStack(spacing: 14) {
+                                    ZStack {
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .fill(Color(hex: "5AC8FA").opacity(0.15))
+                                            .frame(width: 32, height: 32)
+                                        Image(systemName: "info.circle.fill")
+                                            .font(.system(size: 15, weight: .semibold))
+                                            .foregroundColor(Color(hex: "5AC8FA"))
                                     }
+                                    Text(isEnglish ? "About AuraTune" : "AuraTune Hakkında")
+                                        .font(.headline)
+                                        .foregroundColor(.auraOnSurface)
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundColor(.auraOnSurface.opacity(0.35))
                                 }
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                                .background(
-                                    LinearGradient(
-                                        colors: [Color.auraPrimary, Color(hex: "F4845F")],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
+                                .padding(16)
+                                .background(Color.white)
+                                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                                .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 4)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                        .stroke(Color.auraOnSurface.opacity(0.07), lineWidth: 1)
                                 )
-                                .cornerRadius(18)
-                                .shadow(color: Color.auraPrimary.opacity(0.35), radius: 12, x: 0, y: 6)
                             }
-                            .disabled(viewModel.selectedGenres.isEmpty
-                                || viewModel.userName.trimmingCharacters(in: .whitespaces).isEmpty
-                                || viewModel.isSaving)
-                            .opacity(viewModel.selectedGenres.isEmpty
-                                || viewModel.userName.trimmingCharacters(in: .whitespaces).isEmpty ? 0.5 : 1)
-                            .padding(.top, 4)
-                            .padding(.bottom, 32)
+
+                            // Save Button removed — now a floating bar below
+                            Color.clear.frame(height: 100)
                         }
                         .padding(.horizontal, 16)
-                        .padding(.top, 24)
+                        .padding(.top, 0)
                     }
+                }
+
+                // Floating Save Bar
+                if viewModel.hasChanges {
+                    VStack {
+                        Spacer()
+                        Button(action: {
+                            Task {
+                                await viewModel.saveSettings()
+                                withAnimation { showSavedBadge = true }
+                                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                                withAnimation { showSavedBadge = false }
+                            }
+                        }) {
+                            HStack(spacing: 10) {
+                                if viewModel.isSaving {
+                                    ProgressView().tint(.white)
+                                    Text(isEnglish ? "Saving..." : "Kaydediliyor...")
+                                        .font(.headline)
+                                        .foregroundColor(.white)
+                                } else if showSavedBadge {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.headline)
+                                    Text(isEnglish ? "Saved!" : "Kaydedildi!")
+                                        .font(.headline)
+                                } else {
+                                    Image(systemName: "square.and.arrow.down.fill")
+                                        .font(.headline)
+                                    Text(isEnglish ? "Save Changes" : "Değişiklikleri Kaydet")
+                                        .font(.headline)
+                                }
+                            }
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 16)
+                            .background(
+                                LinearGradient(
+                                    colors: [Color.auraPrimary, Color(hex: "F4845F")],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                            .cornerRadius(18)
+                            .shadow(color: Color.auraPrimary.opacity(0.4), radius: 16, x: 0, y: 8)
+                        }
+                        .disabled(viewModel.userName.trimmingCharacters(in: .whitespaces).isEmpty || viewModel.isSaving)
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 24)
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
             .navigationBarHidden(true)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .preferredColorScheme(.dark)
-            .toolbar(.visible, for: .tabBar)
-            .toolbarBackground(Color.auraSurface, for: .tabBar)
-            .toolbarBackground(.visible, for: .tabBar)
+            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewModel.hasChanges)
+            .onChange(of: viewModel.userName) { _ in viewModel.checkChanges() }
+            .onChange(of: viewModel.wakeUpTime) { _ in viewModel.checkChanges() }
+            .onChange(of: viewModel.selectedGenres) { _ in viewModel.checkChanges() }
+            .onChange(of: viewModel.selectedPlatform) { _ in viewModel.checkChanges() }
+            .sheet(isPresented: $showAbout) {
+                AboutView()
+            }
             .onAppear {
                 if let profile = supabaseManager.userProfile {
                     viewModel.loadProfile(profile)
@@ -225,15 +273,6 @@ struct SettingsView: View {
     // MARK: - Hero Header
     private var heroHeader: some View {
         ZStack(alignment: .bottom) {
-            // Gradient background
-            LinearGradient(
-                colors: [Color(hex: "994A1A"), Color.auraPrimary],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea(edges: .top)
-            .frame(height: 240)
-
             // Decorative circles
             Circle()
                 .fill(Color.white.opacity(0.06))
@@ -279,6 +318,8 @@ struct SettingsView: View {
             }
             .padding(.bottom, 24)
         }
+        .frame(height: 300)
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Section Card Builder

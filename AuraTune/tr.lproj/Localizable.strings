@@ -1,7 +1,7 @@
 "AuraTune'a Hoş Geldin" = "AuraTune'a Hoş Geldin";
 "Uyanma Saatin" = "Uyanma Saatin";
-"Sevdiğin Türler (Maks 3)" = "Sevdiğin Türler (Maks 3)";
-"Favori Müzik Uygulaman" = "Favori Müzik Uygulaman";
+"Sevdiğin Türler (Maks 10)" = "Sevdiğin Türler (Maks 10)";
+"Favori Müzik Uygulamasi" = "Müzik Uygulaması";
 "Tamamla" = "Tamamla";
 "Platform" = "Platform";
 "Günün enerjisi seninle" = "Günün enerjisi seninle";
@@ -48,13 +48,13 @@
 "Soul" = "Soul";
 "Metal" = "Metal";
 "Blues" = "Blues";
+"Keşfet" = "Keşfet";
 "K-Pop" = "K-Pop";
 "Disco" = "Disko";
 "Techno" = "Tekno";
 "House" = "House";
 "Trance" = "Trance";
 "Dubstep" = "Dubstep";
-"Electronic" = "Elektronik";
 "R&B" = "R&B";
 "Lo-Fi" = "Lo-Fi";
 

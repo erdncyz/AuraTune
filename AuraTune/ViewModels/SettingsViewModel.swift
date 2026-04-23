@@ -9,6 +9,12 @@ class SettingsViewModel: ObservableObject {
     @Published var userName: String = ""
     @Published var selectedPlatform: String = "Spotify"
     @Published var isSaving = false
+    @Published var hasChanges = false
+
+    private var originalName: String = ""
+    private var originalTime: Date = Date()
+    private var originalGenres: Set<String> = []
+    private var originalPlatform: String = "Spotify"
     
     let availableGenres = [
         "Pop", "Rock", "Lo-Fi", "Jazz", "Classical", "Hip-Hop", "Electronic", "Indie",
@@ -24,13 +30,26 @@ class SettingsViewModel: ObservableObject {
         self.wakeUpTime = profile.wakeUpTime
         self.selectedGenres = Set(profile.genres)
         self.selectedPlatform = profile.platform
+        // Store originals
+        self.originalName = profile.name
+        self.originalTime = profile.wakeUpTime
+        self.originalGenres = Set(profile.genres)
+        self.originalPlatform = profile.platform
+        self.hasChanges = false
+    }
+
+    func checkChanges() {
+        hasChanges = userName != originalName
+            || selectedPlatform != originalPlatform
+            || selectedGenres != originalGenres
+            || abs(wakeUpTime.timeIntervalSince(originalTime)) > 60
     }
     
     func toggleGenre(_ genre: String) {
         if selectedGenres.contains(genre) {
             selectedGenres.remove(genre)
         } else {
-            if selectedGenres.count < 3 {
+            if selectedGenres.count < 10 {
                 selectedGenres.insert(genre)
             }
         }
@@ -54,6 +73,12 @@ class SettingsViewModel: ObservableObject {
             platform: selectedPlatform
         )
 
+        // Reset originals after save
+        originalName = userName
+        originalTime = wakeUpTime
+        originalGenres = selectedGenres
+        originalPlatform = selectedPlatform
+        hasChanges = false
         isSaving = false
     }
 }

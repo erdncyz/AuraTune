@@ -29,20 +29,20 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .top) {
-                Color.auraSurface
-                // Hero gradient start color extends behind status bar and pull-down area
-                Color(hex: "994A1A")
-                    .frame(height: 250)
+                Color.auraSurface.ignoresSafeArea()
+                LinearGradient(
+                    colors: [Color(hex: "994A1A"), Color.auraPrimary, Color(hex: "FFD966").opacity(0.8)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                    .frame(height: 260)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .ignoresSafeArea(edges: .top)
 
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 0) {
-
-                        // ── Hero Header ──────────────────────────────────
-                        heroHeader
-
-                        // ── Body Cards ───────────────────────────────────
+                VStack(spacing: -8) {
+                    heroHeader
+                    
+                    ScrollView(showsIndicators: false) {
                         VStack(spacing: 16) {
                             if let suggestion = viewModel.dailySuggestion {
                                 songCard(suggestion: suggestion)
@@ -54,25 +54,19 @@ struct HomeView: View {
                                 errorCard(message: error)
                             }
 
-                            // Quick Stats Row
                             statsRow
                         }
                         .padding(.horizontal, 16)
-                        .padding(.top, 24)
+                        .padding(.top, 0)
                         .padding(.bottom, 32)
                     }
                 }
             }
             .navigationBarHidden(true)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .toolbar(.visible, for: .tabBar)
-            .toolbarBackground(Color.auraSurface, for: .tabBar)
-            .toolbarBackground(.visible, for: .tabBar)
-            .preferredColorScheme(.dark)
         }
         .preferredColorScheme(.light)
         .onAppear {
-            if viewModel.dailySuggestion == nil && !viewModel.isLoadingSuggestion {
+            if viewModel.dailySuggestion == nil, !viewModel.isLoadingSuggestion {
                 fetchSuggestion()
             }
         }
@@ -81,15 +75,6 @@ struct HomeView: View {
     // MARK: - Hero Header
     private var heroHeader: some View {
         ZStack(alignment: .bottomLeading) {
-            // Gradient
-            LinearGradient(
-                colors: [Color(hex: "994A1A"), Color.auraPrimary, Color(hex: "FFD966").opacity(0.8)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea(edges: .top)
-            .frame(height: 250)
-
             // Decorative shapes
             Circle()
                 .fill(Color.white.opacity(0.07))
@@ -131,8 +116,10 @@ struct HomeView: View {
                 .clipShape(Capsule())
             }
             .padding(.horizontal, 20)
-            .padding(.bottom, 24)
+            .padding(.bottom, 36)
         }
+        .frame(height: 260)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     // MARK: - Song Card

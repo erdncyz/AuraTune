@@ -9,17 +9,21 @@ struct OnboardingView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .top) {
-                // Fill status bar area with gradient start color
-                Color(hex: "994A1A").ignoresSafeArea()
-                Color.auraSurface.ignoresSafeArea(edges: .bottom)
+                Color.auraSurface.ignoresSafeArea()
                 
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 0) {
-                        
-                        // ── Hero Banner ──────────────────────────────────
-                        heroHeader
-                        
-                        // ── Content Cards ────────────────────────────────
+                LinearGradient(
+                    colors: [Color(hex: "994A1A"), Color.auraPrimary, Color(hex: "FFD966").opacity(0.8)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .frame(height: 280)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .ignoresSafeArea(edges: .top)
+                
+                VStack(spacing: -8) {
+                    heroHeader
+                    
+                    ScrollView(showsIndicators: false) {
                         VStack(spacing: 16) {
                             
                             // Language Selection
@@ -38,6 +42,7 @@ struct OnboardingView: View {
                                     .frame(width: 110)
                                 }
                             }
+                            .padding(.top, 8)
                             
                             // User Name
                             sectionCard(icon: "person.fill", iconColor: Color(hex: "F4845F"),
@@ -59,17 +64,21 @@ struct OnboardingView: View {
                             // Time Picker
                             sectionCard(icon: "alarm.fill", iconColor: Color(hex: "FF9E66"),
                                         title: isEnglish ? "Wake Up Time" : "Uyanma Saatin") {
-                                DatePicker("", selection: $viewModel.wakeUpTime, displayedComponents: .hourAndMinute)
-                                    .datePickerStyle(.wheel)
-                                    .labelsHidden()
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                                    .frame(height: 130)
-                                    .clipped()
+                                HStack {
+                                    Text(isEnglish ? "Wake Up Time" : "Uyanma Saati")
+                                        .font(.subheadline)
+                                        .foregroundColor(.auraOnSurface.opacity(0.7))
+                                    Spacer()
+                                    DatePicker("", selection: $viewModel.wakeUpTime, displayedComponents: .hourAndMinute)
+                                        .datePickerStyle(.compact)
+                                        .labelsHidden()
+                                        .tint(.auraPrimary)
+                                }
                             }
                             
                             // Genre selection
                             sectionCard(icon: "music.note.list", iconColor: Color(hex: "34C759"),
-                                        title: isEnglish ? "Favorite Genres (Max 3)" : "Sevdiğin Türler (Maks 3)") {
+                                        title: isEnglish ? "Favorite Genres (Max 10)" : "Sevdiğin Türler (Maks 10)") {
                                 ScrollView(.horizontal, showsIndicators: true) {
                                     LazyHGrid(rows: [GridItem(.fixed(36)), GridItem(.fixed(36))], spacing: 10) {
                                         ForEach(viewModel.availableGenres, id: \.self) { genre in
@@ -103,7 +112,7 @@ struct OnboardingView: View {
                             
                             // Platform selection
                             sectionCard(icon: "headphones", iconColor: Color(hex: "FF2D55"),
-                                        title: isEnglish ? "Music Platform" : "Favori Müzik Uygulaman") {
+                                        title: isEnglish ? "Music Platform" : "Müzik Uygulaması") {
                                 VStack(spacing: 10) {
                                     ForEach(viewModel.availablePlatforms, id: \.self) { platform in
                                         let isSelected = viewModel.selectedPlatform == platform
@@ -173,54 +182,52 @@ struct OnboardingView: View {
                             .padding(.bottom, 32)
                         }
                         .padding(.horizontal, 16)
-                        .padding(.top, 24)
+                        .padding(.top, 0)
+                        .padding(.bottom, 32)
                     }
                 }
             }
             .navigationBarHidden(true)
-            .statusBarHidden(true)
+            .preferredColorScheme(.light)
         }
     }
     
     // MARK: - Hero Header
     private var heroHeader: some View {
         ZStack(alignment: .bottomLeading) {
-            // Gradient background
-            LinearGradient(
-                colors: [Color(hex: "994A1A"), Color.auraPrimary],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea(edges: .top)
-            .frame(height: 200)
-            
             // Decorative circles
             Circle()
                 .fill(Color.white.opacity(0.06))
-                .frame(width: 180, height: 180)
-                .offset(x: 200, y: -30)
+                .frame(width: 200, height: 200)
+                .offset(x: 200, y: -20)
+            Circle()
+                .fill(Color.white.opacity(0.05))
+                .frame(width: 140, height: 140)
+                .offset(x: 240, y: 40)
             Circle()
                 .fill(Color.white.opacity(0.04))
-                .frame(width: 120, height: 120)
-                .offset(x: -50, y: 40)
+                .frame(width: 80, height: 80)
+                .offset(x: -20, y: -60)
             
-            // Welcome Text
-            VStack(alignment: .leading, spacing: 8) {
+            // Text content
+            VStack(alignment: .leading, spacing: 6) {
                 Text(isEnglish ? "Welcome to" : "Hoş Geldin")
-                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(.white.opacity(0.85))
                 
                 Text(isEnglish ? "AuraTune" : "AuraTune")
-                    .font(.system(size: 40, weight: .bold, design: .rounded))
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
                 
-                Text(isEnglish ? "Let's set up your musical personality" : "Müzik kişiliğini oluşturalım")
-                    .font(.system(size: 14, weight: .medium))
+                Text(isEnglish ? "Discover your sound" : "Müzik kişiliğini oluştur")
+                    .font(.subheadline)
                     .foregroundColor(.white.opacity(0.75))
             }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 24)
+            .padding(.leading, 20)
+            .padding(.bottom, 28)
         }
+        .frame(height: 280)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
     
     // MARK: - Section Card Builder

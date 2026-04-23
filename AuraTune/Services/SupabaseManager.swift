@@ -15,6 +15,7 @@ class SupabaseManager: ObservableObject {
     
     @Published var currentUser: User?
     @Published var userProfile: Profile?
+    @Published var isInitialized: Bool = false
     
     private init() {}
     
@@ -32,6 +33,9 @@ class SupabaseManager: ObservableObject {
             } catch {
                 print("Failed to sign in anonymously: \(error)")
             }
+        }
+        DispatchQueue.main.async {
+            self.isInitialized = true
         }
     }
     

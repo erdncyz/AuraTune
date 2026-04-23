@@ -12,9 +12,9 @@ struct MainTabView: View {
                         Label(LocalizedStringKey("Anasayfa"), systemImage: "house.fill")
                     }
 
-                NotificationsView()
+                DiscoverView()
                     .tabItem {
-                        Label(LocalizedStringKey("Bildirimler"), systemImage: "bell.fill")
+                        Label(LocalizedStringKey("Keşfet"), systemImage: "safari.fill")
                     }
 
                 SettingsView()

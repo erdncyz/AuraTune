@@ -1,7 +1,7 @@
 "AuraTune'a Hoş Geldin" = "Welcome to AuraTune";
 "Uyanma Saatin" = "Wake-up Time";
-"Sevdiğin Türler (Maks 3)" = "Your Genres (Max 3)";
-"Favori Müzik Uygulaman" = "Favorite Music App";
+"Sevdiğin Türler (Maks 10)" = "Your Genres (Max 10)";
+"Favori Müzik Uygulamasi" = "Music Platform";
 "Tamamla" = "Complete";
 "Platform" = "Platform";
 "Günün enerjisi seninle" = "Today's energy is with you";
@@ -48,13 +48,13 @@
 "Soul" = "Soul";
 "Metal" = "Metal";
 "Blues" = "Blues";
+"Keşfet" = "Discover";
 "K-Pop" = "K-Pop";
 "Disco" = "Disco";
 "Techno" = "Techno";
 "House" = "House";
 "Trance" = "Trance";
 "Dubstep" = "Dubstep";
-"Electronic" = "Electronic";
 "R&B" = "R&B";
 "Lo-Fi" = "Lo-Fi";
 
