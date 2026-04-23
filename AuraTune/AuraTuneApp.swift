@@ -31,6 +31,7 @@ struct AuraTuneApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(SupabaseManager.shared)
+                .preferredColorScheme(.light)
         }
     }
 }
