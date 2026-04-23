@@ -44,8 +44,16 @@ class SettingsViewModel: ObservableObject {
             genres: Array(selectedGenres),
             platform: selectedPlatform
         )
-        
+
         await SupabaseManager.shared.saveProfile(updatedProfile)
+
+        // Re-schedule the morning notification at the (possibly new) wake-up time.
+        NotificationManager.shared.scheduleMorningNotification(
+            at: wakeUpTime,
+            suggestion: nil,
+            platform: selectedPlatform
+        )
+
         isSaving = false
     }
 }

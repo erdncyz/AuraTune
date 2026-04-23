@@ -21,30 +21,38 @@ class NotificationManager: NSObject, ObservableObject {
         }
     }
     
-    /// Schedules a local morning notification with a requested song suggestion
-    func scheduleMorningNotification(at time: Date, suggestion: SongSuggestion, platform: String) {
+    /// Schedules a local morning notification with an optional song suggestion
+    func scheduleMorningNotification(at time: Date, suggestion: SongSuggestion?, platform: String) {
         let isEnglish = LanguageManager.shared.currentLanguage == "en"
 
         let content = UNMutableNotificationContent()
         content.title = isEnglish
             ? "🎵 Good Morning! Your Daily Song"
             : "🎵 Günaydın! İşte Günün Şarkısı"
-        content.body = "\(suggestion.message)\n\(suggestion.artist) - \(suggestion.title)"
+        if let suggestion = suggestion {
+            content.body = "\(suggestion.message)\n\(suggestion.artist) - \(suggestion.title)"
+            content.userInfo = [
+                "title": suggestion.title,
+                "artist": suggestion.artist,
+                "platform": platform
+            ]
+        } else {
+            content.body = isEnglish
+                ? "Open AuraTune to discover today's song."
+                : "Günün şarkısını keşfetmek için AuraTune'u aç."
+            content.userInfo = ["platform": platform]
+        }
         content.sound = .default
-        
-        // Include deep link data
-        content.userInfo = [
-            "title": suggestion.title,
-            "artist": suggestion.artist,
-            "platform": platform
-        ]
         
         let calendar = Calendar.current
         let components = calendar.dateComponents([.hour, .minute], from: time)
         
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
         let request = UNNotificationRequest(identifier: "morning_suggestion", content: content, trigger: trigger)
-        
+
+        // Replace any existing scheduled notification before adding the new one
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["morning_suggestion"])
+
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
                 print("Error scheduling notification: \(error)")
