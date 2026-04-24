@@ -58,6 +58,41 @@ class GeminiService {
         }
     }
 
+    func getDailyMix(
+        genres: [String],
+        responseLanguage: String = "Turkish",
+        songLanguagePreference: SongLanguagePreference = .random,
+        excluding mainSuggestion: SongSuggestion
+    ) async throws -> [SongSuggestion] {
+        var results: [SongSuggestion] = []
+        var seenKeys: Set<String> = [mainSuggestion.stableKey]
+        var attempts = 0
+
+        while results.count < 5 && attempts < 20 {
+            attempts += 1
+
+            let candidate = try await getSongSuggestion(
+                genres: genres,
+                time: Date().addingTimeInterval(Double(attempts) * 97),
+                responseLanguage: responseLanguage,
+                songLanguagePreference: songLanguagePreference
+            )
+
+            if seenKeys.contains(candidate.stableKey) {
+                continue
+            }
+
+            seenKeys.insert(candidate.stableKey)
+            results.append(candidate)
+        }
+
+        guard results.count == 5 else {
+            throw AIError.badResponse
+        }
+
+        return results
+    }
+
     // MARK: - Private
 
     private enum AIError: Error {

@@ -37,4 +37,5 @@ struct ContentView: View {
 #Preview {
     ContentView()
         .environmentObject(SupabaseManager.shared)
+        .environmentObject(FavoritesManager.shared)
 }

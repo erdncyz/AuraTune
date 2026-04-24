@@ -17,6 +17,11 @@ struct MainTabView: View {
                         Label(LocalizedStringKey("Keşfet"), systemImage: "safari.fill")
                     }
 
+                FavoritesView()
+                    .tabItem {
+                        Label(languageManager.currentLanguage == "en" ? "Library" : "Kütüphanem", systemImage: "heart.fill")
+                    }
+
                 SettingsView()
                     .tabItem {
                         Label(LocalizedStringKey("Profil"), systemImage: "person.circle.fill")

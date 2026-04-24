@@ -3,7 +3,11 @@ import SwiftUI
 struct HomeView: View {
     @EnvironmentObject var supabaseManager: SupabaseManager
     @EnvironmentObject var languageManager: LanguageManager
+    @EnvironmentObject var favoritesManager: FavoritesManager
+    @EnvironmentObject var historyManager: HistoryManager
     @StateObject private var viewModel = HomeViewModel()
+    @State private var isSettingsSheetPresented = false
+    @State private var isLibrarySheetPresented = false
 
     var isEnglish: Bool { languageManager.currentLanguage == "en" }
 
@@ -35,7 +39,7 @@ struct HomeView: View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
-                    .frame(height: 260)
+                    .frame(height: 310)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .ignoresSafeArea(edges: .top)
 
@@ -46,6 +50,12 @@ struct HomeView: View {
                         VStack(spacing: 16) {
                             if let suggestion = viewModel.dailySuggestion {
                                 songCard(suggestion: suggestion)
+
+                                if viewModel.isLoadingMix {
+                                    mixLoadingCard
+                                } else if !viewModel.dailyMix.isEmpty {
+                                    dailyMixCard(songs: viewModel.dailyMix)
+                                }
                             } else {
                                 emptyCard
                             }
@@ -54,7 +64,9 @@ struct HomeView: View {
                                 errorCard(message: error)
                             }
 
-                            statsRow
+                            if let mixError = viewModel.mixErrorMessage {
+                                errorCard(message: mixError)
+                            }
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 0)
@@ -69,6 +81,14 @@ struct HomeView: View {
             if viewModel.dailySuggestion == nil, !viewModel.isLoadingSuggestion {
                 fetchSuggestion()
             }
+        }
+        .sheet(isPresented: $isLibrarySheetPresented) {
+            FavoritesView()
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $isSettingsSheetPresented) {
+            SettingsView()
+                .presentationDragIndicator(.visible)
         }
     }
 
@@ -100,25 +120,72 @@ struct HomeView: View {
                     .font(.system(size: 34, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
 
-                HStack(spacing: 6) {
-                    Image(systemName: "music.note")
-                        .font(.caption)
-                    let platform = supabaseManager.userProfile?.platform ?? ""
-                    Text(platform.isEmpty
-                         ? (isEnglish ? "Set up your profile" : "Profilini tamamla")
-                         : platform)
-                        .font(.caption.weight(.medium))
+                // Quick Stats
+                VStack(alignment: .leading, spacing: 8) {
+                    // Row 1: Profile stats
+                    HStack(spacing: 8) {
+                        Button(action: { isSettingsSheetPresented = true }) {
+                            statChip(
+                                icon: "clock.fill",
+                                color: Color(hex: "7C6AF7"),
+                                label: isEnglish ? "Wake Up" : "Uyanma",
+                                value: {
+                                    let f = DateFormatter()
+                                    f.timeStyle = .short
+                                    return f.string(from: supabaseManager.userProfile?.wakeUpTime ?? Date())
+                                }()
+                            )
+                        }
+                        Button(action: { isSettingsSheetPresented = true }) {
+                            statChip(
+                                icon: "music.note.list",
+                                color: Color(hex: "34C759"),
+                                label: isEnglish ? "Genres" : "Tür",
+                                value: "\(supabaseManager.userProfile?.genres.count ?? 0)"
+                            )
+                        }
+                        Button(action: { isSettingsSheetPresented = true }) {
+                            statChip(
+                                icon: "headphones",
+                                color: Color(hex: "F4845F"),
+                                label: isEnglish ? "Platform" : "Platform",
+                                value: {
+                                    let p = supabaseManager.userProfile?.platform ?? "-"
+                                    if p == "Apple Music" { return "Apple" }
+                                    if p == "YouTube Music" { return "YouTube" }
+                                    return p
+                                }()
+                            )
+                        }
+                    }
+                    
+                    // Row 2: Library stats (centered, tappable)
+                    HStack(spacing: 8) {
+                        Spacer()
+                        Button(action: { isLibrarySheetPresented = true }) {
+                            libraryChip(
+                                icon: "heart.fill",
+                                color: Color(hex: "FF2D55"),
+                                label: isEnglish ? "Likes" : "Beğendiklerim",
+                                value: "\(favoritesManager.favorites.count)"
+                            )
+                        }
+                        Button(action: { isLibrarySheetPresented = true }) {
+                            libraryChip(
+                                icon: "clock.arrow.circlepath",
+                                color: Color(hex: "5AC8FA"),
+                                label: isEnglish ? "History" : "Geçmiş Öneriler",
+                                value: "\(historyManager.history.count)"
+                            )
+                        }
+                        Spacer()
+                    }
                 }
-                .foregroundColor(.white.opacity(0.8))
-                .padding(.horizontal, 10)
-                .padding(.vertical, 4)
-                .background(Color.white.opacity(0.15))
-                .clipShape(Capsule())
             }
             .padding(.horizontal, 20)
-            .padding(.bottom, 36)
+            .padding(.bottom, 20)
         }
-        .frame(height: 260)
+        .frame(height: 310)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -151,6 +218,14 @@ struct HomeView: View {
                         .foregroundColor(.auraOnSurface.opacity(0.4))
                         .rotationEffect(.degrees(viewModel.isLoadingSuggestion ? 360 : 0))
                         .animation(viewModel.isLoadingSuggestion ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: viewModel.isLoadingSuggestion)
+                }
+
+                Button(action: {
+                    favoritesManager.toggleFavorite(suggestion)
+                }) {
+                    Image(systemName: favoritesManager.isFavorite(suggestion) ? "heart.fill" : "heart")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(favoritesManager.isFavorite(suggestion) ? .red : .auraOnSurface.opacity(0.4))
                 }
             }
             .padding(.horizontal, 16)
@@ -228,6 +303,88 @@ struct HomeView: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(Color.auraOnSurface.opacity(0.07), lineWidth: 1)
         )
+    }
+
+    private var mixLoadingCard: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+                .tint(.auraPrimary)
+            Text(isEnglish ? "Building your Daily Mix..." : "Daily Mix hazırlanıyor...")
+                .font(.subheadline)
+                .foregroundColor(.auraOnSurface.opacity(0.6))
+        }
+        .frame(maxWidth: .infinity, minHeight: 120)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 4)
+    }
+
+    private func dailyMixCard(songs: [SongSuggestion]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text(isEnglish ? "Daily Mix" : "Daily Mix")
+                    .font(.headline)
+                    .foregroundColor(.auraOnSurface)
+                Spacer()
+                Button(action: {
+                    guard let profile = supabaseManager.userProfile,
+                          let suggestion = viewModel.dailySuggestion else { return }
+                    Task { await viewModel.fetchDailyMix(profile: profile, excluding: suggestion) }
+                }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.clockwise")
+                        Text(isEnglish ? "Refresh" : "Yenile")
+                    }
+                    .font(.caption.bold())
+                    .foregroundColor(.auraPrimary)
+                }
+            }
+
+            ForEach(Array(songs.enumerated()), id: \.offset) { index, song in
+                HStack(spacing: 10) {
+                    Text("\(index + 1)")
+                        .font(.caption.bold())
+                        .foregroundColor(.auraOnSurface.opacity(0.6))
+                        .frame(width: 18)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(song.title)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundColor(.auraOnSurface)
+                            .lineLimit(1)
+                        Text(song.artist)
+                            .font(.caption)
+                            .foregroundColor(.auraOnSurface.opacity(0.6))
+                            .lineLimit(1)
+                    }
+
+                    Spacer()
+
+                    Button(action: {
+                        favoritesManager.toggleFavorite(song)
+                    }) {
+                        Image(systemName: favoritesManager.isFavorite(song) ? "heart.fill" : "heart")
+                            .foregroundColor(favoritesManager.isFavorite(song) ? .red : .auraOnSurface.opacity(0.5))
+                    }
+
+                    Button(action: {
+                        openMusicApp(title: song.title, artist: song.artist)
+                    }) {
+                        Image(systemName: "play.fill")
+                            .foregroundColor(.auraPrimary)
+                    }
+                }
+                .padding(.vertical, 6)
+
+                if index < songs.count - 1 {
+                    Divider()
+                }
+            }
+        }
+        .padding(16)
+        .background(Color.white)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 4)
     }
 
     // MARK: - Empty / Loading Card
@@ -314,63 +471,58 @@ struct HomeView: View {
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.orange.opacity(0.2), lineWidth: 1))
     }
 
-    // MARK: - Quick Stats Row
+    // MARK: - Quick Stats Row (deprecated - moved to hero header)
     private var statsRow: some View {
-        HStack(spacing: 12) {
-            statChip(
-                icon: "clock.fill",
-                color: Color(hex: "7C6AF7"),
-                label: isEnglish ? "Wake Up" : "Uyanma",
-                value: {
-                    let f = DateFormatter()
-                    f.timeStyle = .short
-                    return f.string(from: supabaseManager.userProfile?.wakeUpTime ?? Date())
-                }()
-            )
-            statChip(
-                icon: "music.note.list",
-                color: Color(hex: "34C759"),
-                label: isEnglish ? "Genres" : "Türler",
-                value: "\(supabaseManager.userProfile?.genres.count ?? 0)"
-            )
-            statChip(
-                icon: "headphones",
-                color: Color(hex: "F4845F"),
-                label: isEnglish ? "Platform" : "Platform",
-                value: {
-                    let p = supabaseManager.userProfile?.platform ?? "-"
-                    if p == "Apple Music" { return "Apple" }
-                    if p == "YouTube Music" { return "YouTube" }
-                    return p
-                }()
-            )
-        }
+        EmptyView()
     }
 
-    private func statChip(icon: String, color: Color, label: String, value: String) -> some View {
-        VStack(spacing: 8) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(color.opacity(0.12))
-                    .frame(width: 40, height: 40)
-                Image(systemName: icon)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(color)
-            }
+    private func libraryChip(icon: String, color: Color, label: String, value: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(color)
             Text(value)
-                .font(.subheadline.bold())
-                .foregroundColor(.auraOnSurface)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(.white)
             Text(label)
-                .font(.caption2)
-                .foregroundColor(.auraOnSurface.opacity(0.5))
+                .font(.system(size: 12, weight: .regular))
+                .foregroundColor(.white.opacity(0.85))
+            Image(systemName: "chevron.right")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundColor(.white.opacity(0.6))
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 3)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(Color.white.opacity(0.25))
+        .clipShape(Capsule())
+        .overlay(
+            Capsule()
+                .stroke(Color.white.opacity(0.45), lineWidth: 1)
+        )
+    }
+
+    // MARK: - Unused function marker
+
+    private func statChip(icon: String, color: Color, label: String, value: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(color)
+            Text(value)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(.white)
+            Text(label)
+                .font(.system(size: 12, weight: .regular))
+                .foregroundColor(.white.opacity(0.75))
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(Color.white.opacity(0.18))
+        .clipShape(Capsule())
+        .overlay(
+            Capsule()
+                .stroke(Color.white.opacity(0.25), lineWidth: 0.5)
+        )
     }
 
     // MARK: - Helpers

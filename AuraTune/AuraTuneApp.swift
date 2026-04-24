@@ -10,6 +10,8 @@ import UIKit
 
 @main
 struct AuraTuneApp: App {
+    @StateObject private var favoritesManager = FavoritesManager.shared
+    @StateObject private var historyManager = HistoryManager.shared
     
     init() {
         // Setup Local Notifications
@@ -31,6 +33,8 @@ struct AuraTuneApp: App {
         WindowGroup {
             ContentView()
                 .environmentObject(SupabaseManager.shared)
+                .environmentObject(favoritesManager)
+                .environmentObject(historyManager)
                 .preferredColorScheme(.light)
         }
     }

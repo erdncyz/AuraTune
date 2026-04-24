@@ -3,6 +3,7 @@ import SwiftUI
 struct DiscoverView: View {
     @EnvironmentObject var supabaseManager: SupabaseManager
     @EnvironmentObject var languageManager: LanguageManager
+    @EnvironmentObject var favoritesManager: FavoritesManager
     @StateObject private var viewModel = DiscoverViewModel()
     @State private var selectedSongLanguageOverride: SongLanguagePreference? = nil
 
@@ -315,25 +316,37 @@ struct DiscoverView: View {
             .padding(.bottom, 14)
 
             // Play Button
-            Button(action: {
-                openMusicApp(title: suggestion.title, artist: suggestion.artist)
-            }) {
-                HStack(spacing: 8) {
-                    Image(systemName: "play.fill")
-                    Text(isEnglish ? "Start Listening" : "Dinlemeye Başla")
-                        .fontWeight(.semibold)
+            HStack(spacing: 10) {
+                Button(action: {
+                    favoritesManager.toggleFavorite(suggestion)
+                }) {
+                    Image(systemName: favoritesManager.isFavorite(suggestion) ? "heart.fill" : "heart")
+                        .foregroundColor(favoritesManager.isFavorite(suggestion) ? .red : .auraOnSurface.opacity(0.6))
+                        .frame(width: 44, height: 44)
+                        .background(Color.auraSurface)
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(
-                    LinearGradient(
-                        colors: [Color(hex: "4C3F8A"), Color.auraTertiary],
-                        startPoint: .leading, endPoint: .trailing
+
+                Button(action: {
+                    openMusicApp(title: suggestion.title, artist: suggestion.artist)
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "play.fill")
+                        Text(isEnglish ? "Start Listening" : "Dinlemeye Başla")
+                            .fontWeight(.semibold)
+                    }
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        LinearGradient(
+                            colors: [Color(hex: "4C3F8A"), Color.auraTertiary],
+                            startPoint: .leading, endPoint: .trailing
+                        )
                     )
-                )
-                .cornerRadius(14)
-                .shadow(color: Color.auraTertiary.opacity(0.3), radius: 8, x: 0, y: 4)
+                    .cornerRadius(14)
+                    .shadow(color: Color.auraTertiary.opacity(0.3), radius: 8, x: 0, y: 4)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 16)

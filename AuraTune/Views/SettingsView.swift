@@ -3,10 +3,13 @@ import SwiftUI
 struct SettingsView: View {
     @EnvironmentObject var supabaseManager: SupabaseManager
     @EnvironmentObject var languageManager: LanguageManager
+    @EnvironmentObject var favoritesManager: FavoritesManager
+    @EnvironmentObject var historyManager: HistoryManager
     @StateObject private var viewModel = SettingsViewModel()
     @Environment(\.dismiss) var dismiss
     @State private var showSavedBadge = false
     @State private var showAbout = false
+    @State private var isLibrarySheetPresented = false
 
     var isEnglish: Bool { languageManager.currentLanguage == "en" }
 
@@ -19,7 +22,7 @@ struct SettingsView: View {
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
-                    .frame(height: 300)
+                    .frame(height: 310)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     .ignoresSafeArea(edges: .top)
 
@@ -294,6 +297,10 @@ struct SettingsView: View {
             .sheet(isPresented: $showAbout) {
                 AboutView()
             }
+            .sheet(isPresented: $isLibrarySheetPresented) {
+                FavoritesView()
+                    .presentationDragIndicator(.visible)
+            }
             .onAppear {
                 if let profile = supabaseManager.userProfile {
                     viewModel.loadProfile(profile)
@@ -305,54 +312,137 @@ struct SettingsView: View {
 
     // MARK: - Hero Header
     private var heroHeader: some View {
-        ZStack(alignment: .bottom) {
+        ZStack(alignment: .bottomLeading) {
             // Decorative circles
             Circle()
                 .fill(Color.white.opacity(0.06))
-                .frame(width: 180, height: 180)
-                .offset(x: 120, y: -30)
+                .frame(width: 200, height: 200)
+                .offset(x: 200, y: -20)
+            Circle()
+                .fill(Color.white.opacity(0.05))
+                .frame(width: 140, height: 140)
+                .offset(x: 240, y: 40)
             Circle()
                 .fill(Color.white.opacity(0.04))
-                .frame(width: 120, height: 120)
-                .offset(x: -100, y: 20)
+                .frame(width: 80, height: 80)
+                .offset(x: -20, y: -60)
 
-            // Avatar + Name
-            VStack(spacing: 10) {
-                ZStack {
-                    Circle()
-                        .fill(Color.white.opacity(0.2))
-                        .frame(width: 76, height: 76)
-                    Text(viewModel.userName.prefix(1).uppercased().isEmpty
-                         ? "?" : String(viewModel.userName.prefix(1).uppercased()))
-                        .font(.system(size: 32, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                }
-                .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 4)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(isEnglish ? "Profile" : "Profil")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.85))
 
-                Text(viewModel.userName.isEmpty
-                     ? (isEnglish ? "Your Profile" : "Profilin")
-                     : viewModel.userName)
-                    .font(.system(size: 22, weight: .bold, design: .rounded))
+                Text(viewModel.userName.isEmpty ? "AuraTune" : viewModel.userName)
+                    .font(.system(size: 34, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
 
-                if !viewModel.selectedPlatform.isEmpty {
-                    HStack(spacing: 6) {
-                        Image(systemName: "headphones")
-                            .font(.caption)
-                        Text(viewModel.selectedPlatform)
-                            .font(.caption.weight(.medium))
+                // Stat pills (non-tappable)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack(spacing: 8) {
+                        statPill(
+                            icon: "clock.fill",
+                            color: Color(hex: "7C6AF7"),
+                            label: isEnglish ? "Wake Up" : "Uyanma",
+                            value: {
+                                let f = DateFormatter()
+                                f.timeStyle = .short
+                                return f.string(from: supabaseManager.userProfile?.wakeUpTime ?? Date())
+                            }()
+                        )
+                        statPill(
+                            icon: "music.note.list",
+                            color: Color(hex: "34C759"),
+                            label: isEnglish ? "Genres" : "Tür",
+                            value: "\(viewModel.selectedGenres.count)"
+                        )
+                        statPill(
+                            icon: "headphones",
+                            color: Color(hex: "F4845F"),
+                            label: isEnglish ? "Platform" : "Platform",
+                            value: {
+                                let p = viewModel.selectedPlatform
+                                if p == "Apple Music" { return "Apple" }
+                                if p == "YouTube Music" { return "YouTube" }
+                                return p.isEmpty ? "-" : p
+                            }()
+                        )
                     }
-                    .foregroundColor(.white.opacity(0.85))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 4)
-                    .background(Color.white.opacity(0.15))
-                    .clipShape(Capsule())
+
+                    // Row 2: Library (centered, tappable)
+                    HStack(spacing: 8) {
+                        Spacer()
+                        Button(action: { isLibrarySheetPresented = true }) {
+                            libraryPill(
+                                icon: "heart.fill",
+                                color: Color(hex: "FF2D55"),
+                                label: isEnglish ? "Likes" : "Beğendiklerim",
+                                value: "\(favoritesManager.favorites.count)"
+                            )
+                        }
+                        Button(action: { isLibrarySheetPresented = true }) {
+                            libraryPill(
+                                icon: "clock.arrow.circlepath",
+                                color: Color(hex: "5AC8FA"),
+                                label: isEnglish ? "History" : "Geçmiş Öneriler",
+                                value: "\(historyManager.history.count)"
+                            )
+                        }
+                        Spacer()
+                    }
                 }
             }
-            .padding(.bottom, 24)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
         }
-        .frame(height: 300)
-        .frame(maxWidth: .infinity)
+        .frame(height: 310)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func statPill(icon: String, color: Color, label: String, value: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(color)
+            Text(value)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(.white)
+            Text(label)
+                .font(.system(size: 12, weight: .regular))
+                .foregroundColor(.white.opacity(0.75))
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(Color.white.opacity(0.18))
+        .clipShape(Capsule())
+        .overlay(
+            Capsule()
+                .stroke(Color.white.opacity(0.25), lineWidth: 0.5)
+        )
+    }
+
+    private func libraryPill(icon: String, color: Color, label: String, value: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundColor(color)
+            Text(value)
+                .font(.system(size: 13, weight: .bold))
+                .foregroundColor(.white)
+            Text(label)
+                .font(.system(size: 12, weight: .regular))
+                .foregroundColor(.white.opacity(0.85))
+            Image(systemName: "chevron.right")
+                .font(.system(size: 9, weight: .semibold))
+                .foregroundColor(.white.opacity(0.6))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(Color.white.opacity(0.25))
+        .clipShape(Capsule())
+        .overlay(
+            Capsule()
+                .stroke(Color.white.opacity(0.45), lineWidth: 1)
+        )
     }
 
     // MARK: - Section Card Builder

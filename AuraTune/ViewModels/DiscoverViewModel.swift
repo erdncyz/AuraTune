@@ -51,6 +51,7 @@ class DiscoverViewModel: ObservableObject {
                 songLanguagePreference: songLanguagePreference
             )
             self.suggestion = result
+            HistoryManager.shared.addEntry(result, source: "discover")
         } catch {
             self.errorMessage = interfaceLanguage == "en"
                 ? "Could not get suggestion: \(error.localizedDescription)"
