@@ -23,12 +23,12 @@ class GeminiService {
         print("[AIService] Primary: Groq → llama-3.3-70b-versatile")
         #endif
         do {
-            return try await fetchFromGroq(prompt: prompt)
+            return try await fetchFromGroq(prompt: prompt, responseLanguage: responseLanguage)
         } catch AIError.rateLimited {
             #if DEBUG
             print("[AIService] Groq rate limited (429) → Fallback: Gemini 2.5 Flash Lite")
             #endif
-            return try await fetchFromGemini(prompt: prompt)
+            return try await fetchFromGemini(prompt: prompt, responseLanguage: responseLanguage)
         }
     }
 
@@ -49,12 +49,12 @@ class GeminiService {
         print("[AIService] Primary: Groq → llama-3.3-70b-versatile")
         #endif
         do {
-            return try await fetchFromGroq(prompt: prompt)
+            return try await fetchFromGroq(prompt: prompt, responseLanguage: responseLanguage)
         } catch AIError.rateLimited {
             #if DEBUG
             print("[AIService] Groq rate limited (429) → Fallback: Gemini 2.5 Flash Lite")
             #endif
-            return try await fetchFromGemini(prompt: prompt)
+            return try await fetchFromGemini(prompt: prompt, responseLanguage: responseLanguage)
         }
     }
 
@@ -123,7 +123,7 @@ class GeminiService {
                 \(songLanguagePreference.promptInstruction)
         Recommend a DIFFERENT specific song each time — do not repeat popular or obvious choices.
         Explore deep cuts, hidden gems, or lesser-known tracks when possible.
-                SADECE aşağıdaki JSON formatında ve SADECE \(responseLanguage) dilinde SOHBET MESAJI (message) oluşturarak yanıt ver. Başlık ve sanatçı orijinal kalabilir.
+            SADECE aşağıdaki JSON formatında ve SADECE \(responseLanguage) dilinde SOHBET MESAJI (message) oluşturarak yanıt ver. Mesaj içinde başka dil, alfabe veya yabancı karakter kullanma. Başlık ve sanatçı orijinal kalabilir.
         Please return ONLY in this JSON format:
         {
           "title": "Song Title",
@@ -150,7 +150,7 @@ class GeminiService {
                 \(songLanguagePreference.promptInstruction)
         Try recommending a track from the \(randomEra) era if it fits the mood.
         Pick a DIFFERENT song each time — avoid repeating the same artist or song. Explore unexpected, creative choices.
-                SADECE aşağıdaki JSON formatında ve SADECE \(responseLanguage) dilinde SOHBET MESAJI (message) oluşturarak yanıt ver. Başlık ve sanatçı orijinal kalabilir.
+                SADECE aşağıdaki JSON formatında ve SADECE \(responseLanguage) dilinde SOHBET MESAJI (message) oluşturarak yanıt ver. Mesaj içinde başka dil, alfabe veya yabancı karakter kullanma. Başlık ve sanatçı orijinal kalabilir.
         Please return ONLY in this JSON format:
         {
           "title": "Song Title",
@@ -162,7 +162,7 @@ class GeminiService {
 
     // MARK: Groq (primary)
 
-    private func fetchFromGroq(prompt: String) async throws -> SongSuggestion {
+    private func fetchFromGroq(prompt: String, responseLanguage: String) async throws -> SongSuggestion {
         guard let url = URL(string: "https://api.groq.com/openai/v1/chat/completions") else {
             throw URLError(.badURL)
         }
@@ -200,10 +200,10 @@ class GeminiService {
         #if DEBUG
         print("[AIService] Groq response OK (status=200)")
         #endif
-        return try parseGroqResponse(data: data)
+        return try parseGroqResponse(data: data, responseLanguage: responseLanguage)
     }
 
-    private func parseGroqResponse(data: Data) throws -> SongSuggestion {
+    private func parseGroqResponse(data: Data, responseLanguage: String) throws -> SongSuggestion {
         struct GroqResponse: Decodable {
             struct Choice: Decodable {
                 struct Message: Decodable { let content: String }
@@ -216,12 +216,13 @@ class GeminiService {
               let jsonData = jsonText.data(using: .utf8) else {
             throw AIError.parseFailure
         }
-        return try JSONDecoder().decode(SongSuggestion.self, from: jsonData)
+                let suggestion = try JSONDecoder().decode(SongSuggestion.self, from: jsonData)
+                return sanitizeSuggestion(suggestion, responseLanguage: responseLanguage)
     }
 
     // MARK: Gemini (fallback)
 
-    private func fetchFromGemini(prompt: String) async throws -> SongSuggestion {
+    private func fetchFromGemini(prompt: String, responseLanguage: String) async throws -> SongSuggestion {
         let urlString = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=\(Secrets.geminiAPIKey)"
         guard let url = URL(string: urlString) else { throw URLError(.badURL) }
 
@@ -251,10 +252,10 @@ class GeminiService {
         #if DEBUG
         print("[AIService] Gemini response OK (status=200)")
         #endif
-        return try parseGeminiResponse(data: data)
+        return try parseGeminiResponse(data: data, responseLanguage: responseLanguage)
     }
 
-    private func parseGeminiResponse(data: Data) throws -> SongSuggestion {
+    private func parseGeminiResponse(data: Data, responseLanguage: String) throws -> SongSuggestion {
         struct GeminiResponse: Decodable {
             struct Candidate: Decodable {
                 struct Content: Decodable {
@@ -270,6 +271,49 @@ class GeminiService {
               let jsonData = jsonText.data(using: .utf8) else {
             throw AIError.parseFailure
         }
-        return try JSONDecoder().decode(SongSuggestion.self, from: jsonData)
+        let suggestion = try JSONDecoder().decode(SongSuggestion.self, from: jsonData)
+        return sanitizeSuggestion(suggestion, responseLanguage: responseLanguage)
+    }
+
+    private func sanitizeSuggestion(_ suggestion: SongSuggestion, responseLanguage: String) -> SongSuggestion {
+        SongSuggestion(
+            title: suggestion.title,
+            artist: suggestion.artist,
+            message: sanitizeMessage(suggestion.message, responseLanguage: responseLanguage)
+        )
+    }
+
+    private func sanitizeMessage(_ message: String, responseLanguage: String) -> String {
+        guard ["turkish", "english"].contains(responseLanguage.lowercased()) else {
+            return message
+        }
+
+        let tokens = message.split(whereSeparator: \ .isWhitespace)
+        let cleanedTokens = tokens.filter { token in
+            !containsUnexpectedScript(in: String(token))
+        }
+
+        let cleaned = cleanedTokens.joined(separator: " ")
+            .replacingOccurrences(of: "\\s+([,.;:!?])", with: "$1", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        return cleaned.isEmpty ? message : cleaned
+    }
+
+    private func containsUnexpectedScript(in token: String) -> Bool {
+        token.unicodeScalars.contains { scalar in
+            switch scalar.value {
+            case 0x3040...0x30FF,
+                 0x3400...0x4DBF,
+                 0x4E00...0x9FFF,
+                 0xAC00...0xD7AF,
+                 0x0600...0x06FF,
+                 0x0400...0x04FF,
+                 0x0900...0x097F:
+                return true
+            default:
+                return false
+            }
+        }
     }
 }

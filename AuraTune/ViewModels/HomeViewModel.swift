@@ -50,7 +50,9 @@ class HomeViewModel: ObservableObject {
     func fetchDailySuggestion(profile: Profile) async {
         isLoadingSuggestion = true
         dailySuggestion = nil
+        dailyMix = []
         errorMessage = nil
+        mixErrorMessage = nil
         do {
             let suggestion = try await GeminiService.shared.getSongSuggestion(
                 genres: profile.genres,
@@ -68,6 +70,8 @@ class HomeViewModel: ObservableObject {
                 suggestion: suggestion,
                 platform: profile.platform
             )
+
+            await fetchDailyMix(profile: profile, excluding: suggestion)
             
         } catch {
             self.errorMessage = "Öneri alınamadı: \(error.localizedDescription)"
