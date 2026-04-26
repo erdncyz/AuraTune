@@ -22,17 +22,9 @@ final class MusicPlaybackResolver {
             )
 
         case "YouTube Music":
-            if let videoID = await YouTubeService.shared.resolveVideoID(title: title, artist: artist),
-               let appURL = URL(string: "youtubemusic://watch?v=\(videoID)"),
-               let webURL = URL(string: "https://music.youtube.com/watch?v=\(videoID)") {
-                return (appURL, webURL)
-            }
-
             let query = queryString(title: title, artist: artist)
-            return (
-                URL(string: "youtubemusic://search?q=\(query)"),
-                URL(string: "https://music.youtube.com/search?q=\(query)")
-            )
+            let webURL = URL(string: "https://music.youtube.com/search?q=\(query)")
+            return (webURL, webURL)
 
         case "Apple Music":
             let query = queryString(title: title, artist: artist)

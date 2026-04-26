@@ -82,22 +82,25 @@ class DiscoverViewModel: ObservableObject {
         do {
             let result: SongSuggestion
 
-            if platform == "Spotify" {
-                result = try await SpotifyService.shared.getDailySuggestion(
-                    genres: sourceGenres,
-                    songLanguagePreference: songLanguagePreference,
-                    interfaceLanguage: interfaceLanguage,
-                    excluding: HistoryManager.shared.history.map(\ .song)
-                )
-                debugLog("Discover suggestion selected from spotify: \(result.stableKey)")
-            } else if platform == "YouTube Music" {
-                result = try await YouTubeService.shared.getDailySuggestion(
-                    genres: sourceGenres,
-                    songLanguagePreference: songLanguagePreference,
-                    interfaceLanguage: interfaceLanguage,
-                    excluding: HistoryManager.shared.history.map(\ .song)
-                )
-                debugLog("Discover suggestion selected from youtube: \(result.stableKey)")
+            if platform == "Spotify" || platform == "YouTube Music" {
+                do {
+                    result = try await SpotifyService.shared.getDailySuggestion(
+                        genres: sourceGenres,
+                        songLanguagePreference: songLanguagePreference,
+                        interfaceLanguage: interfaceLanguage,
+                        excluding: HistoryManager.shared.history.map(\ .song)
+                    )
+                    debugLog("Discover suggestion selected from spotify (for \(platform)): \(result.stableKey)")
+                } catch {
+                    debugLog("Spotify failed (\(error.localizedDescription)), falling back to AI for discover")
+                    result = try await GeminiService.shared.getSongSuggestionForMood(
+                        mood: moodLabel,
+                        genres: sourceGenres,
+                        responseLanguage: interfaceLanguage == "en" ? "English" : "Turkish",
+                        songLanguagePreference: songLanguagePreference
+                    )
+                    debugLog("Discover suggestion selected from gemini (spotify fallback): \(result.stableKey)")
+                }
             } else {
                 result = try await GeminiService.shared.getSongSuggestionForMood(
                     mood: moodLabel,

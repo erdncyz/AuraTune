@@ -147,7 +147,7 @@ struct HomeView: View {
                                 value: {
                                     let p = supabaseManager.userProfile?.platform ?? "-"
                                     if p == "Apple Music" { return "Apple" }
-                                    if p == "YouTube Music" { return "YouTube" }
+                                    if p == "YouTube Music" { return "YT Music" }
                                     return p
                                 }()
                             )
@@ -569,18 +569,20 @@ struct HomeView: View {
     // MARK: - Unused function marker
 
     private func statChip(icon: String, color: Color, label: String, value: String) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             Image(systemName: icon)
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundColor(color)
             Text(value)
-                .font(.system(size: 13, weight: .bold))
+                .font(.system(size: 12, weight: .bold))
                 .foregroundColor(.white)
+                .lineLimit(1)
             Text(label)
-                .font(.system(size: 12, weight: .regular))
+                .font(.system(size: 11, weight: .regular))
                 .foregroundColor(.white.opacity(0.75))
+                .lineLimit(1)
         }
-        .padding(.horizontal, 12)
+        .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .background(Color.white.opacity(0.18))
         .clipShape(Capsule())

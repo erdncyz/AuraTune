@@ -35,6 +35,7 @@ final class YouTubeService {
     enum YouTubeError: LocalizedError {
         case missingAPIKey
         case badResponse
+        case quotaExceeded
         case noCandidates
 
         var errorDescription: String? {
@@ -43,6 +44,8 @@ final class YouTubeService {
                 return "YouTube API key is missing."
             case .badResponse:
                 return "YouTube API returned an invalid response."
+            case .quotaExceeded:
+                return "YouTube API daily quota exceeded. Please try again tomorrow."
             case .noCandidates:
                 return "YouTube could not find enough song candidates."
             }
@@ -211,7 +214,11 @@ final class YouTubeService {
         let (data, response) = try await URLSession.shared.data(from: url)
         let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
         guard statusCode == 200 else {
-            debugLog("Search failed with status=\(statusCode), query=\(query)")
+            let body = String(data: data, encoding: .utf8) ?? "no body"
+            debugLog("Search failed with status=\(statusCode), query=\(query), body=\(body)")
+            if statusCode == 403 && body.contains("quotaExceeded") {
+                throw YouTubeError.quotaExceeded
+            }
             throw YouTubeError.badResponse
         }
 

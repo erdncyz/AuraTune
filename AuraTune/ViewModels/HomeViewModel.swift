@@ -108,22 +108,27 @@ class HomeViewModel: ObservableObject {
             let suggestion: SongSuggestion
             var suggestionSource = "gemini"
 
-            if profile.platform == "Spotify" {
-                suggestion = try await SpotifyService.shared.getDailySuggestion(
-                    genres: profile.genres,
-                    songLanguagePreference: profile.songLanguage,
-                    interfaceLanguage: LanguageManager.shared.currentLanguage,
-                    excluding: exclusionPool
-                )
-                suggestionSource = "spotify"
-            } else if profile.platform == "YouTube Music" {
-                suggestion = try await YouTubeService.shared.getDailySuggestion(
-                    genres: profile.genres,
-                    songLanguagePreference: profile.songLanguage,
-                    interfaceLanguage: LanguageManager.shared.currentLanguage,
-                    excluding: exclusionPool
-                )
-                suggestionSource = "youtube"
+            if profile.platform == "Spotify" || profile.platform == "YouTube Music" {
+                do {
+                    suggestion = try await SpotifyService.shared.getDailySuggestion(
+                        genres: profile.genres,
+                        songLanguagePreference: profile.songLanguage,
+                        interfaceLanguage: LanguageManager.shared.currentLanguage,
+                        excluding: exclusionPool
+                    )
+                    suggestionSource = "spotify"
+                    debugLog("Using Spotify API for \(profile.platform) suggestions (no quota limit)")
+                } catch {
+                    debugLog("Spotify failed (\(error.localizedDescription)), falling back to AI suggestion")
+                    suggestion = try await GeminiService.shared.getSongSuggestion(
+                        genres: profile.genres,
+                        time: Date(),
+                        responseLanguage: LanguageManager.shared.currentLanguageFullName,
+                        songLanguagePreference: profile.songLanguage,
+                        excluding: exclusionPool
+                    )
+                    suggestionSource = "gemini (spotify fallback)"
+                }
             } else {
                 suggestion = try await GeminiService.shared.getSongSuggestion(
                     genres: profile.genres,
@@ -178,24 +183,28 @@ class HomeViewModel: ObservableObject {
             let mix: [SongSuggestion]
             var mixSource = "gemini"
 
-            if profile.platform == "Spotify" {
-                mix = try await SpotifyService.shared.getDailyMix(
-                    genres: profile.genres,
-                    songLanguagePreference: profile.songLanguage,
-                    interfaceLanguage: LanguageManager.shared.currentLanguage,
-                    excluding: [suggestion] + exclusionPool,
-                    count: 5
-                )
-                mixSource = "spotify"
-            } else if profile.platform == "YouTube Music" {
-                mix = try await YouTubeService.shared.getDailyMix(
-                    genres: profile.genres,
-                    songLanguagePreference: profile.songLanguage,
-                    interfaceLanguage: LanguageManager.shared.currentLanguage,
-                    excluding: [suggestion] + exclusionPool,
-                    count: 5
-                )
-                mixSource = "youtube"
+            if profile.platform == "Spotify" || profile.platform == "YouTube Music" {
+                do {
+                    mix = try await SpotifyService.shared.getDailyMix(
+                        genres: profile.genres,
+                        songLanguagePreference: profile.songLanguage,
+                        interfaceLanguage: LanguageManager.shared.currentLanguage,
+                        excluding: [suggestion] + exclusionPool,
+                        count: 5
+                    )
+                    mixSource = "spotify"
+                    debugLog("Using Spotify API for \(profile.platform) daily mix (no quota limit)")
+                } catch {
+                    debugLog("Spotify mix failed (\(error.localizedDescription)), falling back to AI mix")
+                    mix = try await GeminiService.shared.getDailyMix(
+                        genres: profile.genres,
+                        responseLanguage: LanguageManager.shared.currentLanguageFullName,
+                        songLanguagePreference: profile.songLanguage,
+                        excluding: suggestion,
+                        excludingSongs: exclusionPool
+                    )
+                    mixSource = "gemini (spotify fallback)"
+                }
             } else {
                 mix = try await GeminiService.shared.getDailyMix(
                     genres: profile.genres,

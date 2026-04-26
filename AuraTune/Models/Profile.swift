@@ -25,7 +25,9 @@ enum SongLanguagePreference: String, Codable, CaseIterable, Identifiable {
         case .english:
             return "Recommend an English-language song. Prioritize songs whose lyrics are primarily in English."
         case .random:
-            return "Randomly choose either a Turkish-language or English-language song for this recommendation, and do not mention that the choice was random."
+            let pickTurkish = Bool.random()
+            let language = pickTurkish ? "Turkish" : "English"
+            return "Recommend a \(language)-language song for this recommendation. Prioritize songs whose lyrics are primarily in \(language). Do not mention that the choice was random."
         }
     }
 }

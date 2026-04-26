@@ -87,6 +87,7 @@ final class SpotifyService {
         case unauthorized
         case badResponse
         case noCandidates
+        case rateLimited
 
         var errorDescription: String? {
             switch self {
@@ -98,6 +99,8 @@ final class SpotifyService {
                 return "Spotify API returned an invalid response."
             case .noCandidates:
                 return "Spotify could not find enough song candidates."
+            case .rateLimited:
+                return "Spotify rate limit exceeded."
             }
         }
     }
@@ -125,12 +128,13 @@ final class SpotifyService {
         guard let picked = candidates.randomElement() else {
             throw SpotifyError.noCandidates
         }
+        let pickedTrack = picked.track
 
-        debugLog("Daily suggestion picked: \(picked.name) | \(artistDisplay(from: picked.artists))")
+        debugLog("Daily suggestion picked: \(pickedTrack.name) | \(artistDisplay(from: pickedTrack.artists))")
 
         return SongSuggestion(
-            title: picked.name,
-            artist: artistDisplay(from: picked.artists),
+            title: pickedTrack.name,
+            artist: artistDisplay(from: pickedTrack.artists),
             message: dailyMessage(interfaceLanguage: interfaceLanguage)
         )
     }
@@ -161,8 +165,8 @@ final class SpotifyService {
 
         return selected.map {
             SongSuggestion(
-                title: $0.name,
-                artist: artistDisplay(from: $0.artists),
+                title: $0.track.name,
+                artist: artistDisplay(from: $0.track.artists),
                 message: mixMessage(interfaceLanguage: interfaceLanguage)
             )
         }
@@ -207,36 +211,46 @@ final class SpotifyService {
         }
     }
 
+    private struct MarketTrack {
+        let track: SearchResponse.Track
+        let market: String
+    }
+
     private func fetchCandidates(
         genres: [String],
         songLanguagePreference: SongLanguagePreference,
         excluding: [SongSuggestion],
         targetCount: Int
-    ) async throws -> [SearchResponse.Track] {
+    ) async throws -> [MarketTrack] {
         debugLog("Fetching candidates from Spotify API. targetCount=\(targetCount)")
         let token = try await accessToken()
-        let market = market(for: songLanguagePreference)
         let excludedKeys = Set(excluding.map(\ .stableKey))
         let queries = buildQueries(from: genres, songLanguagePreference: songLanguagePreference)
-        debugLog("Search plan. market=\(market), queries=\(queries.count)")
+        debugLog("Search plan. queries=\(queries.count)")
 
-        var uniqueTracks: [SearchResponse.Track] = []
+        var uniqueTracks: [MarketTrack] = []
         var seenKeys = Set<String>()
 
-        for query in queries {
-            debugLog("Search query=\(query)")
+        for (index, entry) in queries.enumerated() {
+            if index > 0 {
+                try? await Task.sleep(nanoseconds: 200_000_000) // 200ms between queries
+            }
+            debugLog("Search query=\(entry.query), market=\(entry.market)")
             let tracks: [SearchResponse.Track]
             do {
                 tracks = try await searchTracks(
-                    query: query,
-                    market: market,
+                    query: entry.query,
+                    market: entry.market,
                     token: token
                 )
+            } catch SpotifyError.rateLimited {
+                debugLog("Rate limited, aborting remaining queries")
+                throw SpotifyError.rateLimited
             } catch {
-                debugLog("Search query failed and skipped. query=\(query), error=\(error.localizedDescription)")
+                debugLog("Search query failed and skipped. query=\(entry.query), error=\(error.localizedDescription)")
                 continue
             }
-            debugLog("Search result count=\(tracks.count) for query=\(query)")
+            debugLog("Search result count=\(tracks.count) for query=\(entry.query)")
 
             for track in tracks where !track.explicit {
                 guard !track.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
@@ -244,7 +258,7 @@ final class SpotifyService {
                 let stableKey = SongSuggestion(title: track.name, artist: artistDisplay(from: track.artists), message: "").stableKey
                 if excludedKeys.contains(stableKey) { continue }
                 if !seenKeys.insert(stableKey).inserted { continue }
-                uniqueTracks.append(track)
+                uniqueTracks.append(MarketTrack(track: track, market: entry.market))
             }
 
             if uniqueTracks.count >= targetCount {
@@ -254,73 +268,58 @@ final class SpotifyService {
 
         debugLog("Unique candidate count after filtering=\(uniqueTracks.count)")
 
-        return uniqueTracks.sorted { $0.popularity > $1.popularity }
+        return uniqueTracks.sorted { $0.track.popularity > $1.track.popularity }
     }
 
-    private func buildQueries(from genres: [String], songLanguagePreference: SongLanguagePreference) -> [String] {
+    private func buildQueries(from genres: [String], songLanguagePreference: SongLanguagePreference) -> [(query: String, market: String)] {
         let cleanedGenres = genres
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
+        let shuffled = cleanedGenres.shuffled()
 
-        var queries: [String] = []
+        var queries: [(query: String, market: String)] = []
 
         switch songLanguagePreference {
         case .turkish:
-            // Turkish-specific queries first for strong Turkish results
-            let turkishPrefixes = ["türkçe", "turkish"]
-            let turkishGenres = ["pop", "rock", "rap", "indie", "slow", "arabesk", "akustik"]
-
-            queries.append("türkçe pop 2024")
-            queries.append("turkish hits")
-            queries.append("türkçe şarkılar")
-
-            // Add user genres with Turkish prefix
-            for genre in cleanedGenres.shuffled().prefix(3) {
+            queries.append(("yeni türkçe şarkılar", "TR"))
+            for genre in shuffled {
                 let lowered = genre.lowercased()
-                if !lowered.contains("türk") && !lowered.contains("turkish") {
-                    queries.append("türkçe \(genre)")
+                if lowered.contains("türk") || lowered.contains("turkish") {
+                    queries.append((genre, "TR"))
                 } else {
-                    queries.append(genre)
+                    queries.append(("türkçe \(genre)", "TR"))
                 }
             }
 
-            // Add some Turkish genre combos
-            for tg in turkishGenres.shuffled().prefix(2) {
-                queries.append("türkçe \(tg)")
-            }
-
-            queries.append("yeni türkçe müzik")
-
         case .english:
-            let base = cleanedGenres.isEmpty ? ["pop", "indie", "alternative", "dance"] : Array(cleanedGenres.shuffled().prefix(4))
-            queries = base.map { "\($0) music" }
-            queries.insert("english pop hits", at: 0)
-            queries.append("uk indie")
-            queries.append("new music 2024")
+            queries.append(("new english music", "US"))
+            for genre in shuffled {
+                queries.append(("\(genre) music", "US"))
+            }
 
         case .random:
-            // Mix Turkish and English queries for variety
-            let base = cleanedGenres.isEmpty ? ["pop", "indie", "alternative"] : Array(cleanedGenres.shuffled().prefix(3))
-            // Half Turkish
-            queries.append("türkçe pop 2024")
-            queries.append("türkçe şarkılar")
-            for genre in base.prefix(1) {
-                queries.append("türkçe \(genre)")
-            }
-            // Half English
-            queries.append("english pop hits")
-            queries.append("new music 2024")
-            for genre in base.suffix(from: min(1, base.count)) {
-                queries.append("\(genre) music")
+            queries.append(("yeni türkçe şarkılar", "TR"))
+            queries.append(("new english music", "US"))
+            for (index, genre) in shuffled.enumerated() {
+                if index % 2 == 0 {
+                    let lowered = genre.lowercased()
+                    if lowered.contains("türk") || lowered.contains("turkish") {
+                        queries.append((genre, "TR"))
+                    } else {
+                        queries.append(("türkçe \(genre)", "TR"))
+                    }
+                } else {
+                    queries.append(("\(genre) music", "US"))
+                }
             }
         }
 
-        return orderedUnique(queries)
+        return orderedUniqueQueries(queries)
     }
 
-    private func orderedUnique(_ values: [String]) -> [String] {
+    private func orderedUniqueQueries(_ values: [(query: String, market: String)]) -> [(query: String, market: String)] {
         var seen = Set<String>()
-        return values.filter { seen.insert($0.lowercased()).inserted }
+        return values.filter { seen.insert($0.query.lowercased()).inserted }
     }
 
     private func accessToken() async throws -> String {
@@ -372,20 +371,26 @@ final class SpotifyService {
         market: String,
         token: String
     ) async throws -> [SearchResponse.Track] {
-        debugLog("Trying strict search. query=\(query), market=\(market)")
+        let effectiveMarket: String? = market.isEmpty ? nil : market
+
+        debugLog("Trying strict search. query=\(query), market=\(market.isEmpty ? "global" : market)")
         let initialResult = try await performSearchRequest(
             query: query,
-            market: market,
+            market: effectiveMarket,
             token: token,
             limit: nil,
             offset: nil
         )
 
+        if initialResult.statusCode == 429 {
+            debugLog("Rate limited (429) on query=\(query), failing fast for AI fallback")
+            throw SpotifyError.rateLimited
+        }
+
         if initialResult.statusCode == 200 {
             if let items = decodeTracks(from: initialResult.data, context: "strict") {
                 return items
             }
-
             debugLog("Strict search returned 200 but payload was not decodable, continuing with fallback attempts")
         }
 
@@ -399,6 +404,11 @@ final class SpotifyService {
             limit: nil,
             offset: nil
         )
+
+        if noMarketResult.statusCode == 429 {
+            debugLog("Rate limited (429) on no-market retry, failing fast for AI fallback")
+            throw SpotifyError.rateLimited
+        }
 
         if noMarketResult.statusCode == 200, let items = decodeTracks(from: noMarketResult.data, context: "no-market") {
             return items
@@ -417,6 +427,11 @@ final class SpotifyService {
             offset: nil
         )
 
+        if relaxedResult.statusCode == 429 {
+            debugLog("Rate limited (429) on relaxed retry, failing fast for AI fallback")
+            throw SpotifyError.rateLimited
+        }
+
         if relaxedResult.statusCode == 200, let items = decodeTracks(from: relaxedResult.data, context: "relaxed") {
             return items
         }
@@ -432,7 +447,7 @@ final class SpotifyService {
         token: String,
         limit: Int?,
         offset: Int?
-    ) async throws -> (statusCode: Int, data: Data) {
+    ) async throws -> (statusCode: Int, data: Data, response: HTTPURLResponse?) {
         var components = URLComponents(string: "https://api.spotify.com/v1/search")
         var queryItems = [
             URLQueryItem(name: "q", value: query),
@@ -461,8 +476,9 @@ final class SpotifyService {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         let (data, response) = try await URLSession.shared.data(for: request)
-        let statusCode = (response as? HTTPURLResponse)?.statusCode ?? -1
-        return (statusCode: statusCode, data: data)
+        let httpResponse = response as? HTTPURLResponse
+        let statusCode = httpResponse?.statusCode ?? -1
+        return (statusCode: statusCode, data: data, response: httpResponse)
     }
 
     private func decodeTracks(from data: Data, context: String) -> [SearchResponse.Track]? {
