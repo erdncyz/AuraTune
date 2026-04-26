@@ -19,17 +19,28 @@ class HomeViewModel: ObservableObject {
         loadCachedSuggestionIfToday()
     }
 
+    private func debugLog(_ message: String) {
+        #if DEBUG
+        print("[HomeFlow] \(message)")
+        #endif
+    }
+
     private func loadCachedSuggestionIfToday() {
         guard let savedDate = UserDefaults.standard.object(forKey: cacheDateKey) as? Date,
               Calendar.current.isDateInToday(savedDate),
               let data = UserDefaults.standard.data(forKey: cacheKey),
               let suggestion = try? JSONDecoder().decode(SongSuggestion.self, from: data)
-        else { return }
+        else {
+            debugLog("No valid daily cache for today")
+            return
+        }
         self.dailySuggestion = suggestion
+        debugLog("Loaded daily suggestion from cache: \(suggestion.stableKey)")
 
         if let mixData = UserDefaults.standard.data(forKey: mixCacheKey),
            let mix = try? JSONDecoder().decode([SongSuggestion].self, from: mixData) {
             self.dailyMix = mix
+            debugLog("Loaded daily mix from cache: count=\(mix.count)")
         }
     }
 
@@ -37,65 +48,175 @@ class HomeViewModel: ObservableObject {
         if let data = try? JSONEncoder().encode(suggestion) {
             UserDefaults.standard.set(data, forKey: cacheKey)
             UserDefaults.standard.set(Date(), forKey: cacheDateKey)
+            debugLog("Cached daily suggestion: \(suggestion.stableKey)")
         }
     }
 
     private func cacheDailyMix(_ mix: [SongSuggestion]) {
         if let data = try? JSONEncoder().encode(mix) {
             UserDefaults.standard.set(data, forKey: mixCacheKey)
+            debugLog("Cached daily mix: count=\(mix.count)")
         }
     }
 
+    private func recentExclusionPool(limit: Int = 40) -> [SongSuggestion] {
+        let candidateSongs = HistoryManager.shared.history.map(\ .song) + FavoritesManager.shared.favorites
+        var seenKeys = Set<String>()
+        var uniqueSongs: [SongSuggestion] = []
+
+        for song in candidateSongs {
+            if seenKeys.insert(song.stableKey).inserted {
+                uniqueSongs.append(song)
+            }
+
+            if uniqueSongs.count >= limit {
+                break
+            }
+        }
+
+        return uniqueSongs
+    }
+
+    private func enrichedSuggestionWithAIMessage(
+        from suggestion: SongSuggestion,
+        interfaceLanguage: String
+    ) async -> SongSuggestion {
+        let responseLanguage = interfaceLanguage == "en" ? "English" : "Turkish"
+        let message = await GeminiService.shared.generateSongCommentary(
+            title: suggestion.title,
+            artist: suggestion.artist,
+            responseLanguage: responseLanguage
+        )
+
+        return SongSuggestion(title: suggestion.title, artist: suggestion.artist, message: message)
+    }
+
     // Fetch from Gemini via GeminiService
-    func fetchDailySuggestion(profile: Profile) async {
+    func fetchDailySuggestion(profile: Profile, refreshMix: Bool = false) async {
+        debugLog("Starting daily suggestion. platform=\(profile.platform), genres=\(profile.genres.count), songLanguage=\(profile.songLanguage.rawValue)")
         isLoadingSuggestion = true
         dailySuggestion = nil
-        dailyMix = []
+        if refreshMix {
+            dailyMix = []
+            debugLog("Daily mix cleared because refreshMix=true")
+        }
         errorMessage = nil
         mixErrorMessage = nil
         do {
-            let suggestion = try await GeminiService.shared.getSongSuggestion(
-                genres: profile.genres,
-                time: Date(),
-                responseLanguage: LanguageManager.shared.currentLanguageFullName,
-                songLanguagePreference: profile.songLanguage
+            let exclusionPool = recentExclusionPool()
+            debugLog("Daily exclusion pool built: count=\(exclusionPool.count)")
+            let suggestion: SongSuggestion
+            var suggestionSource = "gemini"
+
+            if profile.platform == "Spotify" {
+                suggestion = try await SpotifyService.shared.getDailySuggestion(
+                    genres: profile.genres,
+                    songLanguagePreference: profile.songLanguage,
+                    interfaceLanguage: LanguageManager.shared.currentLanguage,
+                    excluding: exclusionPool
+                )
+                suggestionSource = "spotify"
+            } else if profile.platform == "YouTube Music" {
+                suggestion = try await YouTubeService.shared.getDailySuggestion(
+                    genres: profile.genres,
+                    songLanguagePreference: profile.songLanguage,
+                    interfaceLanguage: LanguageManager.shared.currentLanguage,
+                    excluding: exclusionPool
+                )
+                suggestionSource = "youtube"
+            } else {
+                suggestion = try await GeminiService.shared.getSongSuggestion(
+                    genres: profile.genres,
+                    time: Date(),
+                    responseLanguage: LanguageManager.shared.currentLanguageFullName,
+                    songLanguagePreference: profile.songLanguage,
+                    excluding: exclusionPool
+                )
+            }
+
+            debugLog("Daily suggestion selected from \(suggestionSource): \(suggestion.stableKey)")
+
+            let finalSuggestion = await enrichedSuggestionWithAIMessage(
+                from: suggestion,
+                interfaceLanguage: LanguageManager.shared.currentLanguage
             )
-            self.dailySuggestion = suggestion
-            cacheSuggestion(suggestion)
-            HistoryManager.shared.addEntry(suggestion, source: "daily")
+
+            self.dailySuggestion = finalSuggestion
+            cacheSuggestion(finalSuggestion)
+            HistoryManager.shared.addEntry(finalSuggestion, source: "daily")
+            debugLog("Daily suggestion added to history")
 
             // Schedule notification at the user's wake-up time
             NotificationManager.shared.scheduleMorningNotification(
                 at: profile.wakeUpTime,
-                suggestion: suggestion,
+                suggestion: finalSuggestion,
                 platform: profile.platform
             )
 
-            await fetchDailyMix(profile: profile, excluding: suggestion)
+            if refreshMix || dailyMix.isEmpty {
+                debugLog("Triggering daily mix build after daily suggestion")
+                await fetchDailyMix(profile: profile, excluding: finalSuggestion)
+            } else {
+                debugLog("Keeping existing daily mix; skip rebuild after daily suggestion refresh")
+            }
             
         } catch {
+            debugLog("Daily suggestion failed entirely. error=\(error.localizedDescription)")
             self.errorMessage = "Öneri alınamadı: \(error.localizedDescription)"
         }
         isLoadingSuggestion = false
+        debugLog("Daily suggestion flow finished")
     }
 
     func fetchDailyMix(profile: Profile, excluding suggestion: SongSuggestion) async {
+        debugLog("Starting daily mix. platform=\(profile.platform), excludingMain=\(suggestion.stableKey)")
         isLoadingMix = true
         mixErrorMessage = nil
         do {
-            let mix = try await GeminiService.shared.getDailyMix(
-                genres: profile.genres,
-                responseLanguage: LanguageManager.shared.currentLanguageFullName,
-                songLanguagePreference: profile.songLanguage,
-                excluding: suggestion
-            )
+            let exclusionPool = recentExclusionPool(limit: 60)
+            debugLog("Daily mix exclusion pool built: count=\(exclusionPool.count)")
+            let mix: [SongSuggestion]
+            var mixSource = "gemini"
+
+            if profile.platform == "Spotify" {
+                mix = try await SpotifyService.shared.getDailyMix(
+                    genres: profile.genres,
+                    songLanguagePreference: profile.songLanguage,
+                    interfaceLanguage: LanguageManager.shared.currentLanguage,
+                    excluding: [suggestion] + exclusionPool,
+                    count: 5
+                )
+                mixSource = "spotify"
+            } else if profile.platform == "YouTube Music" {
+                mix = try await YouTubeService.shared.getDailyMix(
+                    genres: profile.genres,
+                    songLanguagePreference: profile.songLanguage,
+                    interfaceLanguage: LanguageManager.shared.currentLanguage,
+                    excluding: [suggestion] + exclusionPool,
+                    count: 5
+                )
+                mixSource = "youtube"
+            } else {
+                mix = try await GeminiService.shared.getDailyMix(
+                    genres: profile.genres,
+                    responseLanguage: LanguageManager.shared.currentLanguageFullName,
+                    songLanguagePreference: profile.songLanguage,
+                    excluding: suggestion,
+                    excludingSongs: exclusionPool
+                )
+            }
+
+            debugLog("Daily mix built from \(mixSource): count=\(mix.count)")
+
             dailyMix = mix
             cacheDailyMix(mix)
         } catch {
+            debugLog("Daily mix failed entirely. error=\(error.localizedDescription)")
             mixErrorMessage = LanguageManager.shared.currentLanguage == "en"
                 ? "Could not build Daily Mix: \(error.localizedDescription)"
                 : "Daily Mix oluşturulamadı: \(error.localizedDescription)"
         }
         isLoadingMix = false
+        debugLog("Daily mix flow finished")
     }
 }

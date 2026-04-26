@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct DiscoverView: View {
     @EnvironmentObject var supabaseManager: SupabaseManager
@@ -198,6 +199,7 @@ struct DiscoverView: View {
             Task {
                 await viewModel.fetchSuggestion(
                     genres: profile?.genres ?? [],
+                    platform: profile?.platform ?? "Spotify",
                     interfaceLanguage: languageManager.currentLanguage,
                     songLanguagePreference: selectedSongLanguage
                 )
@@ -379,6 +381,7 @@ struct DiscoverView: View {
                 Task {
                     await viewModel.fetchSuggestion(
                         genres: profile?.genres ?? [],
+                        platform: profile?.platform ?? "Spotify",
                         interfaceLanguage: languageManager.currentLanguage,
                         songLanguagePreference: selectedSongLanguage
                     )
@@ -398,16 +401,23 @@ struct DiscoverView: View {
     // MARK: - Open Music App
     private func openMusicApp(title: String, artist: String) {
         let platform = supabaseManager.userProfile?.platform ?? "Spotify"
-        let query = "\(title) \(artist)".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        let urlString: String
-        switch platform {
-        case "Spotify":       urlString = "spotify:search:\(query)"
-        case "Apple Music":   urlString = "music://music.apple.com/search?term=\(query)"
-        case "YouTube Music": urlString = "https://music.youtube.com/search?q=\(query)"
-        default:              urlString = "spotify:search:\(query)"
-        }
-        if let url = URL(string: urlString) {
-            UIApplication.shared.open(url)
+
+        Task {
+            let resolved = await MusicPlaybackResolver.shared.resolvePlaybackURLs(
+                title: title,
+                artist: artist,
+                platform: platform
+            )
+
+            if let appURL = resolved.appURL, UIApplication.shared.canOpenURL(appURL) {
+                UIApplication.shared.open(appURL, options: [:], completionHandler: nil)
+                return
+            }
+
+            if let webURL = resolved.webURL {
+                UIApplication.shared.open(webURL, options: [:], completionHandler: nil)
+            }
         }
     }
 }
+

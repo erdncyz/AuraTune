@@ -255,25 +255,23 @@ struct FavoritesView: View {
 
 
     private func openMusicApp(title: String, artist: String) {
-        let query = "\(title) \(artist)".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
         let platform = supabaseManager.userProfile?.platform ?? "Spotify"
 
-        var urlString = ""
-        if platform == "Spotify" {
-            urlString = "spotify:search:\(query)"
-        } else if platform == "Apple Music" {
-            urlString = "music://search?term=\(query)"
-        } else if platform == "YouTube Music" {
-            urlString = "youtubemusic://search?q=\(query)"
-        }
+        Task {
+            let resolved = await MusicPlaybackResolver.shared.resolvePlaybackURLs(
+                title: title,
+                artist: artist,
+                platform: platform
+            )
 
-        if let url = URL(string: urlString), UIApplication.shared.canOpenURL(url) {
-            UIApplication.shared.open(url)
-        } else {
-            var webString = "https://open.spotify.com/search/\(query)"
-            if platform == "YouTube Music" { webString = "https://music.youtube.com/search?q=\(query)" }
-            else if platform == "Apple Music" { webString = "https://music.apple.com/search?term=\(query)" }
-            if let webURL = URL(string: webString) { UIApplication.shared.open(webURL) }
+            if let appURL = resolved.appURL, UIApplication.shared.canOpenURL(appURL) {
+                UIApplication.shared.open(appURL, options: [:], completionHandler: nil)
+                return
+            }
+
+            if let webURL = resolved.webURL {
+                UIApplication.shared.open(webURL, options: [:], completionHandler: nil)
+            }
         }
     }
 }

@@ -20,15 +20,35 @@ class NotificationManager: NSObject, ObservableObject {
             }
         }
     }
+
+    private func greeting(for hour: Int, isEnglish: Bool) -> String {
+        if isEnglish {
+            switch hour {
+            case 5..<12:  return "Good Morning ☀️"
+            case 12..<17: return "Good Afternoon ⛅"
+            case 17..<21: return "Good Evening ✨"
+            default:      return "Good Night 🌙"
+            }
+        }
+
+        switch hour {
+        case 5..<12:  return "Günaydın ☀️"
+        case 12..<17: return "İyi Öğlenler ⛅"
+        case 17..<21: return "İyi Akşamlar ✨"
+        default:      return "İyi Geceler 🌙"
+        }
+    }
     
     /// Schedules a local morning notification with an optional song suggestion
     func scheduleMorningNotification(at time: Date, suggestion: SongSuggestion?, platform: String) {
         let isEnglish = LanguageManager.shared.currentLanguage == "en"
+        let hour = Calendar.current.component(.hour, from: time)
+        let greetingText = greeting(for: hour, isEnglish: isEnglish)
 
         let content = UNMutableNotificationContent()
         content.title = isEnglish
-            ? "🎵 Good Morning! Your Daily Song"
-            : "🎵 Günaydın! İşte Günün Şarkısı"
+            ? "\(greetingText) • Your Daily Song"
+            : "\(greetingText) • Günün Şarkısı"
         if let suggestion = suggestion {
             content.body = "\(suggestion.message)\n\(suggestion.artist) - \(suggestion.title)"
             content.userInfo = [

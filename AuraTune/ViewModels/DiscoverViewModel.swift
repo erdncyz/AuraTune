@@ -31,8 +31,31 @@ class DiscoverViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String? = nil
 
+    private func debugLog(_ message: String) {
+        #if DEBUG
+        print("[DiscoverFlow] \(message)")
+        #endif
+    }
+
+    private func enrichedSuggestionWithAIMessage(
+        from suggestion: SongSuggestion,
+        interfaceLanguage: String,
+        mood: String
+    ) async -> SongSuggestion {
+        let responseLanguage = interfaceLanguage == "en" ? "English" : "Turkish"
+        let message = await GeminiService.shared.generateSongCommentary(
+            title: suggestion.title,
+            artist: suggestion.artist,
+            responseLanguage: responseLanguage,
+            mood: mood
+        )
+
+        return SongSuggestion(title: suggestion.title, artist: suggestion.artist, message: message)
+    }
+
     func fetchSuggestion(
         genres: [String],
+        platform: String,
         interfaceLanguage: String,
         songLanguagePreference: SongLanguagePreference
     ) async {
@@ -43,16 +66,58 @@ class DiscoverViewModel: ObservableObject {
 
         let moodLabel = interfaceLanguage == "en" ? mood.nameEn : mood.nameTr
 
+        // Only add the mood name matching the song language preference to avoid polluting search queries
+        let moodGenres: [String]
+        switch songLanguagePreference {
+        case .turkish:
+            moodGenres = [mood.nameTr]
+        case .english:
+            moodGenres = [mood.nameEn]
+        case .random:
+            moodGenres = [mood.nameEn, mood.nameTr]
+        }
+        let sourceGenres = Array(Set(genres + moodGenres))
+        debugLog("Starting discover suggestion. platform=\(platform), mood=\(moodLabel), langPref=\(songLanguagePreference.rawValue), genres=\(sourceGenres.count)")
+
         do {
-            let result = try await GeminiService.shared.getSongSuggestionForMood(
-                mood: moodLabel,
-                genres: genres,
-                responseLanguage: interfaceLanguage == "en" ? "English" : "Turkish",
-                songLanguagePreference: songLanguagePreference
+            let result: SongSuggestion
+
+            if platform == "Spotify" {
+                result = try await SpotifyService.shared.getDailySuggestion(
+                    genres: sourceGenres,
+                    songLanguagePreference: songLanguagePreference,
+                    interfaceLanguage: interfaceLanguage,
+                    excluding: HistoryManager.shared.history.map(\ .song)
+                )
+                debugLog("Discover suggestion selected from spotify: \(result.stableKey)")
+            } else if platform == "YouTube Music" {
+                result = try await YouTubeService.shared.getDailySuggestion(
+                    genres: sourceGenres,
+                    songLanguagePreference: songLanguagePreference,
+                    interfaceLanguage: interfaceLanguage,
+                    excluding: HistoryManager.shared.history.map(\ .song)
+                )
+                debugLog("Discover suggestion selected from youtube: \(result.stableKey)")
+            } else {
+                result = try await GeminiService.shared.getSongSuggestionForMood(
+                    mood: moodLabel,
+                    genres: sourceGenres,
+                    responseLanguage: interfaceLanguage == "en" ? "English" : "Turkish",
+                    songLanguagePreference: songLanguagePreference
+                )
+                debugLog("Discover suggestion selected from gemini primary: \(result.stableKey)")
+            }
+
+            let finalSuggestion = await enrichedSuggestionWithAIMessage(
+                from: result,
+                interfaceLanguage: interfaceLanguage,
+                mood: moodLabel
             )
-            self.suggestion = result
-            HistoryManager.shared.addEntry(result, source: "discover")
+
+            self.suggestion = finalSuggestion
+            HistoryManager.shared.addEntry(finalSuggestion, source: "discover")
         } catch {
+            debugLog("Discover suggestion failed entirely. error=\(error.localizedDescription)")
             self.errorMessage = interfaceLanguage == "en"
                 ? "Could not get suggestion: \(error.localizedDescription)"
                 : "Öneri alınamadı: \(error.localizedDescription)"

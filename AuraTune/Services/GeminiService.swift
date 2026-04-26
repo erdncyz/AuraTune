@@ -11,25 +11,40 @@ class GeminiService {
         genres: [String],
         time: Date,
         responseLanguage: String = "Turkish",
-        songLanguagePreference: SongLanguagePreference = .random
+        songLanguagePreference: SongLanguagePreference = .random,
+        excluding excludedSongs: [SongSuggestion] = []
     ) async throws -> SongSuggestion {
-        let prompt = buildPrompt(
-            genres: genres,
-            time: time,
-            responseLanguage: responseLanguage,
-            songLanguagePreference: songLanguagePreference
-        )
-        #if DEBUG
-        print("[AIService] Primary: Groq → llama-3.3-70b-versatile")
-        #endif
-        do {
-            return try await fetchFromGroq(prompt: prompt, responseLanguage: responseLanguage)
-        } catch AIError.rateLimited {
-            #if DEBUG
-            print("[AIService] Groq rate limited (429) → Fallback: Gemini 2.5 Flash Lite")
-            #endif
-            return try await fetchFromGemini(prompt: prompt, responseLanguage: responseLanguage)
+        let excludedKeys = Set(excludedSongs.map(\ .stableKey))
+        var attempts = 0
+
+        while attempts < 8 {
+            attempts += 1
+
+            let prompt = buildPrompt(
+                genres: genres,
+                time: time.addingTimeInterval(Double(attempts) * 31),
+                responseLanguage: responseLanguage,
+                songLanguagePreference: songLanguagePreference,
+                excludedSongs: excludedSongs
+            )
+
+            do {
+                let suggestion = try await fetchSuggestion(prompt: prompt, responseLanguage: responseLanguage)
+                if !excludedKeys.contains(suggestion.stableKey) {
+                    return suggestion
+                }
+
+                #if DEBUG
+                print("[AIService] Rejected duplicate suggestion: \(suggestion.stableKey)")
+                #endif
+            } catch {
+                #if DEBUG
+                print("[AIService] Suggestion attempt \(attempts) failed: \(error.localizedDescription)")
+                #endif
+            }
         }
+
+        throw AIError.badResponse
     }
 
     func getSongSuggestionForMood(
@@ -58,14 +73,49 @@ class GeminiService {
         }
     }
 
+    func generateSongCommentary(
+        title: String,
+        artist: String,
+        responseLanguage: String = "Turkish",
+        mood: String? = nil
+    ) async -> String {
+        let prompt = buildCommentaryPrompt(
+            title: title,
+            artist: artist,
+            responseLanguage: responseLanguage,
+            mood: mood
+        )
+
+        do {
+            let message = try await fetchCommentaryFromGroq(prompt: prompt)
+            return sanitizeMessage(message, responseLanguage: responseLanguage)
+        } catch {
+            #if DEBUG
+            print("[AIService] Groq commentary failed (\(error.localizedDescription)) → Fallback Gemini")
+            #endif
+
+            do {
+                let message = try await fetchCommentaryFromGemini(prompt: prompt)
+                return sanitizeMessage(message, responseLanguage: responseLanguage)
+            } catch {
+                #if DEBUG
+                print("[AIService] Gemini commentary failed (\(error.localizedDescription)) → Using default commentary")
+                #endif
+                return defaultCommentary(responseLanguage: responseLanguage, title: title, artist: artist)
+            }
+        }
+    }
+
     func getDailyMix(
         genres: [String],
         responseLanguage: String = "Turkish",
         songLanguagePreference: SongLanguagePreference = .random,
-        excluding mainSuggestion: SongSuggestion
+        excluding mainSuggestion: SongSuggestion,
+        excludingSongs: [SongSuggestion] = []
     ) async throws -> [SongSuggestion] {
         var results: [SongSuggestion] = []
-        var seenKeys: Set<String> = [mainSuggestion.stableKey]
+        var exclusionPool: [SongSuggestion] = [mainSuggestion] + excludingSongs
+        var seenKeys: Set<String> = Set(exclusionPool.map(\ .stableKey))
         var attempts = 0
 
         while results.count < 5 && attempts < 20 {
@@ -75,7 +125,8 @@ class GeminiService {
                 genres: genres,
                 time: Date().addingTimeInterval(Double(attempts) * 97),
                 responseLanguage: responseLanguage,
-                songLanguagePreference: songLanguagePreference
+                songLanguagePreference: songLanguagePreference,
+                excluding: exclusionPool
             )
 
             if seenKeys.contains(candidate.stableKey) {
@@ -84,6 +135,7 @@ class GeminiService {
 
             seenKeys.insert(candidate.stableKey)
             results.append(candidate)
+            exclusionPool.append(candidate)
         }
 
         guard results.count == 5 else {
@@ -105,7 +157,8 @@ class GeminiService {
         genres: [String],
         time: Date,
         responseLanguage: String,
-        songLanguagePreference: SongLanguagePreference
+        songLanguagePreference: SongLanguagePreference,
+        excludedSongs: [SongSuggestion]
     ) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .long
@@ -115,6 +168,7 @@ class GeminiService {
         let seed = Int.random(in: 1...9999)
         let moods = ["uplifting", "chill", "energetic", "soulful", "nostalgic", "powerful", "dreamy", "warm", "vibrant", "peaceful"]
         let randomMood = moods.randomElement() ?? "uplifting"
+        let avoidInstruction = makeAvoidedSongsInstruction(from: excludedSongs)
         return """
         User's local time: \(timeString).
         User's favorite genres: \(genreString).
@@ -123,6 +177,7 @@ class GeminiService {
                 \(songLanguagePreference.promptInstruction)
         Recommend a DIFFERENT specific song each time — do not repeat popular or obvious choices.
         Explore deep cuts, hidden gems, or lesser-known tracks when possible.
+        \(avoidInstruction)
             SADECE aşağıdaki JSON formatında ve SADECE \(responseLanguage) dilinde SOHBET MESAJI (message) oluşturarak yanıt ver. Mesaj içinde başka dil, alfabe veya yabancı karakter kullanma. Başlık ve sanatçı orijinal kalabilir.
         Please return ONLY in this JSON format:
         {
@@ -131,6 +186,171 @@ class GeminiService {
                     "message": "A short and energetic good morning message in \(responseLanguage)"
         }
         """
+    }
+
+    private func buildCommentaryPrompt(
+        title: String,
+        artist: String,
+        responseLanguage: String,
+        mood: String?
+    ) -> String {
+        let moodText = mood?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let moodInstruction = moodText.isEmpty ? "" : "Mood context: \(moodText). Use it naturally if it helps the line feel more relevant."
+
+        return """
+        You are writing a short music recommendation line for a mobile music app.
+        Song title: \(title)
+        Artist: \(artist)
+        \(moodInstruction)
+        Language: \(responseLanguage)
+
+        Rules:
+        - Maximum 18 words.
+        - One sentence only.
+        - Sound natural, warm, and human.
+        - The sentence should do two things together: briefly summarize the song's vibe, then give a soft reason to press play.
+        - Focus on concrete feeling, atmosphere, tempo, energy, vocal tone, or emotional arc.
+        - Mention the title or artist only if it genuinely helps the sentence.
+        - Prefer clear everyday wording over poetic, dramatic, or review-style wording.
+        - Be gently persuasive, not salesy.
+        - Avoid generic praise and empty hype.
+        - If you know the song, mention a believable specific trait.
+        - If you do not know the song well, stay grounded and describe the likely mood without pretending to know exact details.
+        - Avoid commands like "kesinlikle dinlemelisin", "mutlaka", "efsane", "harika", "masterpiece", or "must listen".
+        - Do not use hashtags or emojis.
+        - Do not use quotation marks.
+        - Return only the sentence.
+
+        Good style examples:
+        - Sert ama temiz bir enerji veriyor, gunun temposunu yukari cekmek icin iyi bir secim.
+        - Duygusu agir ama akici, biraz durup hissetmek istedigin anlara iyi gider.
+        - Warm vocals and steady momentum make it easy to slip into this track.
+        """
+    }
+
+    private func makeAvoidedSongsInstruction(from excludedSongs: [SongSuggestion]) -> String {
+        let uniqueSongs = Dictionary(grouping: excludedSongs, by: \ .stableKey)
+            .compactMap { $0.value.first }
+            .prefix(10)
+
+        guard !uniqueSongs.isEmpty else {
+            return "Avoid exact repeats from recent suggestions and favorites."
+        }
+
+        let items = uniqueSongs
+            .map { "- \($0.title) — \($0.artist)" }
+            .joined(separator: "\n")
+
+        return """
+        NEVER recommend any of these songs exactly:
+        \(items)
+        """
+    }
+
+    private func fetchSuggestion(prompt: String, responseLanguage: String) async throws -> SongSuggestion {
+        #if DEBUG
+        print("[AIService] Primary: Groq → llama-3.3-70b-versatile")
+        #endif
+        do {
+            return try await fetchFromGroq(prompt: prompt, responseLanguage: responseLanguage)
+        } catch {
+            #if DEBUG
+            print("[AIService] Groq failed (\(error.localizedDescription)) → Fallback: Gemini 2.5 Flash Lite")
+            #endif
+            return try await fetchFromGemini(prompt: prompt, responseLanguage: responseLanguage)
+        }
+    }
+
+    private func fetchCommentaryFromGroq(prompt: String) async throws -> String {
+        guard let url = URL(string: "https://api.groq.com/openai/v1/chat/completions") else {
+            throw URLError(.badURL)
+        }
+
+        let requestBody: [String: Any] = [
+            "model": "llama-3.3-70b-versatile",
+            "messages": [["role": "user", "content": prompt]],
+            "temperature": 0.9,
+            "max_tokens": 80
+        ]
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(Secrets.groqAPIKey)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+        guard status == 200 else {
+            throw AIError.badResponse
+        }
+
+        struct GroqResponse: Decodable {
+            struct Choice: Decodable {
+                struct Message: Decodable { let content: String }
+                let message: Message
+            }
+            let choices: [Choice]
+        }
+
+        let decoded = try JSONDecoder().decode(GroqResponse.self, from: data)
+        guard let content = decoded.choices.first?.message.content.trimmingCharacters(in: .whitespacesAndNewlines),
+              !content.isEmpty else {
+            throw AIError.parseFailure
+        }
+
+        return content
+    }
+
+    private func fetchCommentaryFromGemini(prompt: String) async throws -> String {
+        let urlString = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=\(Secrets.geminiAPIKey)"
+        guard let url = URL(string: urlString) else { throw URLError(.badURL) }
+
+        let requestBody: [String: Any] = [
+            "contents": [["parts": [["text": prompt]]]],
+            "generationConfig": [
+                "responseMimeType": "text/plain",
+                "temperature": 0.9
+            ]
+        ]
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+        guard status == 200 else {
+            throw AIError.badResponse
+        }
+
+        struct GeminiResponse: Decodable {
+            struct Candidate: Decodable {
+                struct Content: Decodable {
+                    struct Part: Decodable { let text: String }
+                    let parts: [Part]
+                }
+                let content: Content
+            }
+            let candidates: [Candidate]
+        }
+
+        let decoded = try JSONDecoder().decode(GeminiResponse.self, from: data)
+        guard let content = decoded.candidates.first?.content.parts.first?.text.trimmingCharacters(in: .whitespacesAndNewlines),
+              !content.isEmpty else {
+            throw AIError.parseFailure
+        }
+
+        return content
+    }
+
+    private func defaultCommentary(responseLanguage: String, title: String, artist: String) -> String {
+        if responseLanguage.lowercased() == "english" {
+            return "\(title) by \(artist) has a steady pull that makes it easy to stay with."
+        }
+
+        return "\(artist) - \(title), duygusunu hizli veren ve icine kolay girilen bir parca."
     }
 
         private func buildMoodPrompt(
