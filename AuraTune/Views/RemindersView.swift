@@ -162,6 +162,10 @@ struct WaterReminderSection: View {
             || minuteOfDay(draftSettings.endTime) != minuteOfDay(saved.endTime)
     }
 
+    private var needsInitialSave: Bool {
+        !remindersManager.hasSavedWaterSettings
+    }
+
     private var saveButtonTitle: String {
         if isLoadingMotivations {
             return isEnglish ? "Saving..." : "Kaydediliyor..."
@@ -169,7 +173,7 @@ struct WaterReminderSection: View {
         if showSaved {
             return isEnglish ? "Saved!" : "Kaydedildi!"
         }
-        if hasUnsavedChanges {
+        if needsInitialSave || hasUnsavedChanges {
             return isEnglish ? "Save Settings" : "Kaydet"
         }
         return isEnglish ? "Up to Date" : "Güncel"
@@ -179,7 +183,7 @@ struct WaterReminderSection: View {
         if isLoadingMotivations {
             return "hourglass"
         }
-        if showSaved || !hasUnsavedChanges {
+        if showSaved || (!hasUnsavedChanges && !needsInitialSave) {
             return "checkmark.circle.fill"
         }
         return "square.and.arrow.down.fill"
@@ -453,7 +457,7 @@ struct WaterReminderSection: View {
                 Group {
                     if showSaved {
                         Color.green
-                    } else if !hasUnsavedChanges {
+                    } else if !hasUnsavedChanges && !needsInitialSave {
                         Color.auraOnSurface.opacity(0.3)
                     } else {
                         LinearGradient(
@@ -469,7 +473,7 @@ struct WaterReminderSection: View {
             .animation(.spring(response: 0.3, dampingFraction: 0.7), value: hasUnsavedChanges)
         }
         .buttonStyle(.plain)
-        .disabled(!hasUnsavedChanges || isLoadingMotivations)
+        .disabled((!hasUnsavedChanges && !needsInitialSave) || isLoadingMotivations)
     }
 }
 

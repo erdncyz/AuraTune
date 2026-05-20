@@ -4,7 +4,7 @@ import Combine
 
 // MARK: - Water Settings
 struct WaterSettings: Codable {
-    var isEnabled: Bool = true
+    var isEnabled: Bool = false
     var intervalMinutes: Int = 60
     var startTime: Date = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date()) ?? Date()
     var endTime: Date = Calendar.current.date(bySettingHour: 22, minute: 0, second: 0, of: Date()) ?? Date()
@@ -38,6 +38,7 @@ final class RemindersManager: ObservableObject {
     static let shared = RemindersManager()
 
     @Published var waterSettings: WaterSettings = WaterSettings()
+    @Published var hasSavedWaterSettings: Bool = false
     @Published var medicines: [MedicineReminder] = []
     @Published var waterMotivations: [String] = []
 
@@ -56,6 +57,7 @@ final class RemindersManager: ObservableObject {
     func saveWaterSettings(_ settings: WaterSettings) {
         waterSettings = settings
         persistWater()
+        hasSavedWaterSettings = true
         if settings.isEnabled {
             NotificationManager.shared.scheduleWaterReminders(
                 startTime: settings.startTime,
@@ -151,6 +153,9 @@ final class RemindersManager: ObservableObject {
     // MARK: - Persistence
 
     private func loadAll() {
+        let hasWaterData = UserDefaults.standard.data(forKey: waterKey) != nil
+        hasSavedWaterSettings = hasWaterData
+
         if let data = UserDefaults.standard.data(forKey: waterKey),
            let decoded = try? JSONDecoder().decode(WaterSettings.self, from: data) {
             waterSettings = decoded
@@ -176,7 +181,7 @@ final class RemindersManager: ObservableObject {
     }
 
     private func restoreSchedulesIfNeeded() {
-        if waterSettings.isEnabled {
+        if hasSavedWaterSettings && waterSettings.isEnabled {
             NotificationManager.shared.scheduleWaterReminders(
                 startTime: waterSettings.startTime,
                 endTime: waterSettings.endTime,
