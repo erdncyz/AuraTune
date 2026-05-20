@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 struct DiscoverView: View {
-    @EnvironmentObject var supabaseManager: SupabaseManager
+    @EnvironmentObject var firebaseManager: FirebaseManager
     @EnvironmentObject var languageManager: LanguageManager
     @EnvironmentObject var favoritesManager: FavoritesManager
     @StateObject private var viewModel = DiscoverViewModel()
@@ -10,7 +10,7 @@ struct DiscoverView: View {
 
     var isEnglish: Bool { languageManager.currentLanguage == "en" }
     var selectedSongLanguage: SongLanguagePreference {
-        selectedSongLanguageOverride ?? supabaseManager.userProfile?.songLanguage ?? .random
+        selectedSongLanguageOverride ?? firebaseManager.userProfile?.songLanguage ?? .random
     }
 
     let columns = [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())]
@@ -195,7 +195,7 @@ struct DiscoverView: View {
     // MARK: - Fetch Button
     private var fetchButton: some View {
         Button(action: {
-            let profile = supabaseManager.userProfile
+            let profile = firebaseManager.userProfile
             Task {
                 await viewModel.fetchSuggestion(
                     genres: profile?.genres ?? [],
@@ -377,7 +377,7 @@ struct DiscoverView: View {
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
             Button(action: {
-                let profile = supabaseManager.userProfile
+                let profile = firebaseManager.userProfile
                 Task {
                     await viewModel.fetchSuggestion(
                         genres: profile?.genres ?? [],
@@ -400,7 +400,7 @@ struct DiscoverView: View {
 
     // MARK: - Open Music App
     private func openMusicApp(title: String, artist: String) {
-        let platform = supabaseManager.userProfile?.platform ?? "Spotify"
+        let platform = firebaseManager.userProfile?.platform ?? "Spotify"
 
         Task {
             let resolved = await MusicPlaybackResolver.shared.resolvePlaybackURLs(

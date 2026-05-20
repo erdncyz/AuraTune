@@ -70,7 +70,7 @@ class SettingsViewModel: ObservableObject {
             songLanguage: selectedSongLanguage
         )
 
-        await SupabaseManager.shared.saveProfile(updatedProfile)
+        await FirebaseManager.shared.saveProfile(updatedProfile)
 
         // Re-schedule the morning notification at the (possibly new) wake-up time.
         NotificationManager.shared.scheduleMorningNotification(

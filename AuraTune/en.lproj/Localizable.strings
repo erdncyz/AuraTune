@@ -58,6 +58,20 @@
 "K-Pop" = "K-Pop";
 "Techno" = "Techno";
 "R&B" = "R&B";
+"Sağlık" = "Health";
+"Hatırlatıcılar" = "Reminders";
+"Su" = "Water";
+"İlaç" = "Medicine";
+"Bugünkü İlerleme" = "Today's Progress";
+"Bardak İçtim" = "Log a Glass";
+"Su Hatırlatıcısı" = "Water Reminders";
+"Hatırlatma Aralığı" = "Reminder Interval";
+"Aktif Saatler" = "Active Hours";
+"Günlük Hedef" = "Daily Goal";
+"İlaç Ekle" = "Add Medicine";
+"İlaç Adı" = "Medicine Name";
+"Doz" = "Dose";
+"Hatırlatma Saatleri" = "Reminder Times";
 "Lo-Fi" = "Lo-Fi";
 
 "Anasayfa" = "Home";

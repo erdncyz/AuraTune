@@ -41,7 +41,7 @@ class OnboardingViewModel: ObservableObject {
             songLanguage: selectedSongLanguage
         )
         
-        await SupabaseManager.shared.saveProfile(profile)
+        await FirebaseManager.shared.saveProfile(profile)
         isSaving = false
     }
 }

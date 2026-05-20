@@ -32,7 +32,7 @@ enum SongLanguagePreference: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-/// Models the user's profile stored in Supabase `profiles` table
+/// Models the user's profile stored in Firestore `profiles` collection
 struct Profile: Codable, Identifiable, Equatable {
     static let maxGenreSelection = 10
 

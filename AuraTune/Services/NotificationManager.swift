@@ -81,7 +81,131 @@ class NotificationManager: NSObject, ObservableObject {
             }
         }
     }
+
+    // MARK: - Water Reminders
+
+    func scheduleWaterReminders(
+        startTime: Date,
+        endTime: Date,
+        intervalMinutes: Int,
+        dailyGoalLiters: Double,
+        messages: [String] = []
+    ) {
+        cancelWaterReminders()
+        let isEnglish = LanguageManager.shared.currentLanguage == "en"
+
+        let calendar = Calendar.current
+        let startComps = calendar.dateComponents([.hour, .minute], from: startTime)
+        let endComps = calendar.dateComponents([.hour, .minute], from: endTime)
+        let startTotal = (startComps.hour ?? 8) * 60 + (startComps.minute ?? 0)
+        let endTotal = (endComps.hour ?? 22) * 60 + (endComps.minute ?? 0)
+
+        var current = startTotal
+        var index = 0
+
+        while current <= endTotal {
+            let hour = current / 60
+            let minute = current % 60
+
+            let content = UNMutableNotificationContent()
+            content.title = isEnglish ? "💧 Time to Drink Water" : "💧 Su İçme Vakti"
+
+            // Use AI-generated motivation message if available, cycle through them
+            if !messages.isEmpty {
+                content.body = messages[index % messages.count]
+            } else {
+                content.body = defaultWaterMessage(
+                    isEnglish: isEnglish,
+                    dailyGoalLiters: dailyGoalLiters
+                )
+            }
+
+            content.sound = .default
+            content.categoryIdentifier = "WATER"
+
+            var comps = DateComponents()
+            comps.hour = hour
+            comps.minute = minute
+
+            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
+            let request = UNNotificationRequest(
+                identifier: String(format: "water_%02d_%02d", hour, minute),
+                content: content,
+                trigger: trigger
+            )
+            UNUserNotificationCenter.current().add(request)
+
+            current += intervalMinutes
+            index += 1
+        }
+        print("Scheduled \(index) water reminders every \(intervalMinutes) min.")
+    }
+
+    private func defaultWaterMessage(isEnglish: Bool, dailyGoalLiters: Double) -> String {
+        let glasses = max(1, Int((dailyGoalLiters / 0.25).rounded()))
+        let litersText = String(format: "%.1f", dailyGoalLiters)
+
+        if isEnglish {
+            return "Your daily target is \(litersText)L (~\(glasses) glasses). Drink a glass now. 💙"
+        }
+
+        return "Gunluk hedefin \(litersText) L (~\(glasses) bardak). Simdi bir bardak su ic. 💙"
+    }
+
+    func cancelWaterReminders() {
+        let ids = allWaterReminderIdentifiers()
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ids)
+    }
+
+    private func allWaterReminderIdentifiers() -> [String] {
+        var ids: [String] = []
+        ids.reserveCapacity(24 * 60)
+        for hour in 0..<24 {
+            for minute in 0..<60 {
+                ids.append(String(format: "water_%02d_%02d", hour, minute))
+            }
+        }
+        return ids
+    }
+
+    // MARK: - Medicine Reminders
+
+    func scheduleMedicineReminders(_ medicine: MedicineReminder) {
+        let isEnglish = LanguageManager.shared.currentLanguage == "en"
+        let calendar = Calendar.current
+
+        for (index, time) in medicine.times.enumerated() {
+            let content = UNMutableNotificationContent()
+            content.title = "💊 \(medicine.name)"
+            content.body = isEnglish
+                ? "Time to take: \(medicine.dose)"
+                : "İlaç alma zamanı: \(medicine.dose)"
+            content.sound = .default
+            content.categoryIdentifier = "MEDICINE"
+
+            let comps = calendar.dateComponents([.hour, .minute], from: time)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
+            let request = UNNotificationRequest(
+                identifier: "medicine_\(medicine.id.uuidString)_\(index)",
+                content: content,
+                trigger: trigger
+            )
+            UNUserNotificationCenter.current().add(request)
+        }
+    }
+
+    func cancelMedicineReminders(id: UUID) {
+        UNUserNotificationCenter.current().getPendingNotificationRequests { requests in
+            let prefix = "medicine_\(id.uuidString)"
+            let ids = requests
+                .filter { $0.identifier.hasPrefix(prefix) }
+                .map { $0.identifier }
+            UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
+        }
+    }
 }
+
 
 extension NotificationManager: UNUserNotificationCenterDelegate {
     

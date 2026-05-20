@@ -3,6 +3,7 @@ import UserNotifications
 
 struct MainTabView: View {
     @EnvironmentObject var languageManager: LanguageManager
+    @EnvironmentObject var remindersManager: RemindersManager
     @State private var showNotificationBanner = false
 
     private var isEnglish: Bool { languageManager.currentLanguage == "en" }
@@ -19,6 +20,11 @@ struct MainTabView: View {
                 DiscoverView()
                     .tabItem {
                         Label(LocalizedStringKey("Keşfet"), systemImage: "safari.fill")
+                    }
+
+                RemindersView()
+                    .tabItem {
+                        Label(languageManager.currentLanguage == "en" ? "Reminders" : "Hatırlatıcı", systemImage: "staroflife.circle.fill")
                     }
 
                 FavoritesView()

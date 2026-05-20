@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 struct HomeView: View {
-    @EnvironmentObject var supabaseManager: SupabaseManager
+    @EnvironmentObject var firebaseManager: FirebaseManager
     @EnvironmentObject var languageManager: LanguageManager
     @EnvironmentObject var favoritesManager: FavoritesManager
     @EnvironmentObject var historyManager: HistoryManager
@@ -110,7 +110,7 @@ struct HomeView: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(.white.opacity(0.85))
 
-                let name = supabaseManager.userProfile?.name ?? ""
+                let name = firebaseManager.userProfile?.name ?? ""
                 Text(name.isEmpty ? "AuraTune" : name)
                     .font(.system(size: 34, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
@@ -127,7 +127,7 @@ struct HomeView: View {
                                 value: {
                                     let f = DateFormatter()
                                     f.timeStyle = .short
-                                    return f.string(from: supabaseManager.userProfile?.wakeUpTime ?? Date())
+                                    return f.string(from: firebaseManager.userProfile?.wakeUpTime ?? Date())
                                 }()
                             )
                         }
@@ -136,7 +136,7 @@ struct HomeView: View {
                                 icon: "music.note.list",
                                 color: Color(hex: "34C759"),
                                 label: isEnglish ? "Genres" : "Tür",
-                                value: "\(supabaseManager.userProfile?.genres.count ?? 0)"
+                                value: "\(firebaseManager.userProfile?.genres.count ?? 0)"
                             )
                         }
                         Button(action: { isSettingsSheetPresented = true }) {
@@ -145,7 +145,7 @@ struct HomeView: View {
                                 color: Color(hex: "F4845F"),
                                 label: isEnglish ? "Platform" : "Platform",
                                 value: {
-                                    let p = supabaseManager.userProfile?.platform ?? "-"
+                                    let p = firebaseManager.userProfile?.platform ?? "-"
                                     if p == "Apple Music" { return "Apple" }
                                     if p == "YouTube Music" { return "YT Music" }
                                     return p
@@ -360,7 +360,7 @@ struct HomeView: View {
             mixHeader
                 .overlay(alignment: .trailing) {
                 Button(action: {
-                    guard let profile = supabaseManager.userProfile,
+                    guard let profile = firebaseManager.userProfile,
                           let suggestion = viewModel.dailySuggestion else { return }
                     Task { await viewModel.fetchDailyMix(profile: profile, excluding: suggestion) }
                 }) {
@@ -594,12 +594,12 @@ struct HomeView: View {
 
     // MARK: - Helpers
     private func fetchSuggestion() {
-        guard let profile = supabaseManager.userProfile else { return }
+        guard let profile = firebaseManager.userProfile else { return }
         Task { await viewModel.fetchDailySuggestion(profile: profile, refreshMix: false) }
     }
 
     private func fetchDailyMixIfNeeded(force: Bool = false) {
-        guard let profile = supabaseManager.userProfile,
+        guard let profile = firebaseManager.userProfile,
               let suggestion = viewModel.dailySuggestion,
               !viewModel.isLoadingMix else { return }
 
@@ -609,7 +609,7 @@ struct HomeView: View {
     }
 
     private func openMusicApp(title: String, artist: String) {
-        let platform = supabaseManager.userProfile?.platform ?? "Spotify"
+        let platform = firebaseManager.userProfile?.platform ?? "Spotify"
 
         Task {
             let resolved = await MusicPlaybackResolver.shared.resolvePlaybackURLs(

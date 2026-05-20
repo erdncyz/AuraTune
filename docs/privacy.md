@@ -43,7 +43,7 @@ We do **not** use your information for advertising, profiling, or behavioral tra
 
 ## 3. Data Storage
 
-- Profile data (name, wake-up time, genres, platform) is stored in our backend provider, **Supabase**, in a secure database. Data is associated with your anonymous user identifier only.
+- Profile data (name, wake-up time, genres, platform) is stored in our backend provider, **Firebase Firestore**, in a secure database. Data is associated with your anonymous user identifier only.
 - Local preferences are stored on your device using Apple's secure storage APIs (UserDefaults).
 - Notifications are scheduled and managed entirely on-device by iOS.
 
@@ -54,7 +54,7 @@ We do **not** use your information for advertising, profiling, or behavioral tra
 AuraTune uses the following third-party services. Each has its own privacy policy:
 
 - **Google Gemini API** — receives anonymized prompts (genres + time) to generate song suggestions. [Google Privacy Policy](https://policies.google.com/privacy)
-- **Supabase** — stores your profile data securely. [Supabase Privacy Policy](https://supabase.com/privacy)
+- **Firebase** — stores your profile data securely. [Firebase Privacy Policy](https://firebase.google.com/support/privacy)
 - **Apple Push / Local Notifications** — used to deliver your morning notification. Governed by Apple's privacy policy.
 
 When you tap a notification, AuraTune attempts to open Spotify, Apple Music, or YouTube Music using the system URL scheme. AuraTune does not share data with these apps beyond the song title and artist needed to perform the search.
@@ -129,14 +129,14 @@ Verilerini **reklamcılık veya profilleme için kullanmıyoruz**.
 
 ## 3. Veri Saklama
 
-- Profil verileri güvenli veritabanı sağlayıcımız **Supabase**'de, anonim kullanıcı kimliğine bağlı olarak saklanır.
+- Profil verileri güvenli veritabanı sağlayıcımız **Firebase Firestore**'da, anonim kullanıcı kimliğine bağlı olarak saklanır.
 - Yerel tercihler Apple'ın güvenli API'leriyle (UserDefaults) cihazında saklanır.
 - Bildirimler iOS tarafından cihazında yönetilir.
 
 ## 4. Üçüncü Taraf Servisler
 
 - **Google Gemini API** — anonim istekler (türler + saat) gönderilir.
-- **Supabase** — profil verisini saklar.
+- **Firebase** — profil verisini saklar.
 - **Apple Bildirim Sistemi** — sabah bildirimini iletir.
 
 ## 5. Veri Paylaşımı

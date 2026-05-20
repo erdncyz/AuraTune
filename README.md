@@ -26,7 +26,7 @@ _(Add App Store screenshots here once available)_
 ## Tech Stack
 
 - **SwiftUI** (iOS 26+)
-- **Supabase** — auth & profile storage
+- **Firebase** — auth & Firestore database
 - **Google Gemini API** (`gemini-2.5-flash-lite`) — song recommendation
 - **UserNotifications** — local morning notification scheduling
 - Swift Package Manager for dependencies
@@ -40,7 +40,7 @@ AuraTune/
 ├── AuraTuneApp.swift           # App entry point
 ├── ContentView.swift           # Root routing (onboarding vs main)
 ├── Models/                     # Profile, SongSuggestion
-├── Services/                   # Gemini, Supabase, Notifications, Language
+├── Services/                   # Gemini, Firebase, Notifications, Language
 ├── ViewModels/                 # Home, Onboarding, Settings
 ├── Views/                      # HomeView, NotificationsView, SettingsView, etc.
 │   └── Components/             # Reusable Material 3 components
@@ -58,7 +58,7 @@ AuraTune/
 - macOS with **Xcode 26+**
 - An iOS 26.4+ simulator or device
 - A **Google Gemini API key** ([create one](https://aistudio.google.com/app/apikey))
-- A **Supabase project** with a `profiles` table
+- A **Firebase project** with Firestore enabled
 
 ### Setup
 
@@ -77,7 +77,7 @@ AuraTune/
    }
    ```
 
-3. Configure Supabase URL and anon key in `AuraTune/Services/SupabaseManager.swift`.
+3. Download the Firebase `GoogleService-Info.plist` from your Firebase Console and add it to the Xcode project.
 
 4. Open `AuraTune.xcodeproj` in Xcode and run on a simulator or device.
 
@@ -96,7 +96,7 @@ AuraTune/
 
 AuraTune does **not** track users or share data with advertisers.
 
-- Stored: name, wake-up time, favorite genres, platform preference (in Supabase, linked to user)
+- Stored: name, wake-up time, favorite genres, platform preference (in Firebase Firestore, linked to user)
 - Sent to Google Gemini: anonymized prompt containing genres and current time only
 - See [`AuraTune/PrivacyInfo.xcprivacy`](AuraTune/PrivacyInfo.xcprivacy) for the full Privacy Manifest
 

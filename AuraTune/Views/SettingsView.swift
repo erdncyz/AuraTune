@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @EnvironmentObject var supabaseManager: SupabaseManager
+    @EnvironmentObject var firebaseManager: FirebaseManager
     @EnvironmentObject var languageManager: LanguageManager
     @EnvironmentObject var favoritesManager: FavoritesManager
     @EnvironmentObject var historyManager: HistoryManager
@@ -302,7 +302,7 @@ struct SettingsView: View {
                     .presentationDragIndicator(.visible)
             }
             .onAppear {
-                if let profile = supabaseManager.userProfile {
+                if let profile = firebaseManager.userProfile {
                     viewModel.loadProfile(profile)
                 }
             }
@@ -346,7 +346,7 @@ struct SettingsView: View {
                             value: {
                                 let f = DateFormatter()
                                 f.timeStyle = .short
-                                return f.string(from: supabaseManager.userProfile?.wakeUpTime ?? Date())
+                                return f.string(from: firebaseManager.userProfile?.wakeUpTime ?? Date())
                             }()
                         )
                         statPill(

@@ -7,13 +7,18 @@
 
 import SwiftUI
 import UIKit
+import FirebaseCore
 
 @main
 struct AuraTuneApp: App {
     @StateObject private var favoritesManager = FavoritesManager.shared
     @StateObject private var historyManager = HistoryManager.shared
+    @StateObject private var remindersManager = RemindersManager.shared
     
     init() {
+        // Configure Firebase
+        FirebaseApp.configure()
+        
         // Setup Local Notifications
         NotificationManager.shared.requestAuthorization()
 
@@ -32,9 +37,10 @@ struct AuraTuneApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environmentObject(SupabaseManager.shared)
+                .environmentObject(FirebaseManager.shared)
                 .environmentObject(favoritesManager)
                 .environmentObject(historyManager)
+                .environmentObject(remindersManager)
                 .preferredColorScheme(.light)
         }
     }

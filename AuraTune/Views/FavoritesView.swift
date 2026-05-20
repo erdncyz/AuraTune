@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 struct FavoritesView: View {
-    @EnvironmentObject var supabaseManager: SupabaseManager
+    @EnvironmentObject var firebaseManager: FirebaseManager
     @EnvironmentObject var languageManager: LanguageManager
     @EnvironmentObject var favoritesManager: FavoritesManager
     @EnvironmentObject var historyManager: HistoryManager
@@ -255,7 +255,7 @@ struct FavoritesView: View {
 
 
     private func openMusicApp(title: String, artist: String) {
-        let platform = supabaseManager.userProfile?.platform ?? "Spotify"
+        let platform = firebaseManager.userProfile?.platform ?? "Spotify"
 
         Task {
             let resolved = await MusicPlaybackResolver.shared.resolvePlaybackURLs(

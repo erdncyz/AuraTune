@@ -7,11 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		BA7DB5922F9A7C680013F54D /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = BA7DB5912F9A7C680013F54D /* Supabase */; };
+		BA9B50712FBDEB4A00B87C29 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = BA9B50702FBDEB4A00B87C29 /* GoogleService-Info.plist */; };
+		BA9B50742FBDECC300B87C29 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = BA9B50732FBDECC300B87C29 /* FirebaseAuth */; };
+		BA9B50762FBDECC300B87C29 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = BA9B50752FBDECC300B87C29 /* FirebaseFirestore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		BA7DB5582F9A74CB0013F54D /* AuraTune.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AuraTune.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BA9B50702FBDEB4A00B87C29 /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "GoogleService-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -27,7 +30,8 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BA7DB5922F9A7C680013F54D /* Supabase in Frameworks */,
+				BA9B50742FBDECC300B87C29 /* FirebaseAuth in Frameworks */,
+				BA9B50762FBDECC300B87C29 /* FirebaseFirestore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -39,6 +43,7 @@
 			children = (
 				BA7DB55A2F9A74CB0013F54D /* AuraTune */,
 				BA7DB5592F9A74CB0013F54D /* Products */,
+				BA9B50702FBDEB4A00B87C29 /* GoogleService-Info.plist */,
 			);
 			sourceTree = "<group>";
 		};
@@ -70,7 +75,8 @@
 			);
 			name = AuraTune;
 			packageProductDependencies = (
-				BA7DB5912F9A7C680013F54D /* Supabase */,
+				BA9B50732FBDECC300B87C29 /* FirebaseAuth */,
+				BA9B50752FBDECC300B87C29 /* FirebaseFirestore */,
 			);
 			productName = AuraTune;
 			productReference = BA7DB5582F9A74CB0013F54D /* AuraTune.app */;
@@ -102,7 +108,7 @@
 			mainGroup = BA7DB54F2F9A74CB0013F54D;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				BA7DB5902F9A7C680013F54D /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				BA9B50722FBDECC300B87C29 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = BA7DB5592F9A74CB0013F54D /* Products */;
@@ -119,6 +125,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BA9B50712FBDEB4A00B87C29 /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -262,7 +269,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = H75Z7U427Y;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -280,7 +287,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.auratune.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -299,7 +306,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 8;
+				CURRENT_PROJECT_VERSION = 9;
 				DEVELOPMENT_TEAM = H75Z7U427Y;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -317,7 +324,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.1;
+				MARKETING_VERSION = 1.2;
 				PRODUCT_BUNDLE_IDENTIFIER = com.auratune.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -354,21 +361,26 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		BA7DB5902F9A7C680013F54D /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+		BA9B50722FBDECC300B87C29 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/supabase/supabase-swift";
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk.git";
 			requirement = {
 				kind = upToNextMajorVersion;
-				minimumVersion = 2.5.1;
+				minimumVersion = 12.13.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		BA7DB5912F9A7C680013F54D /* Supabase */ = {
+		BA9B50732FBDECC300B87C29 /* FirebaseAuth */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = BA7DB5902F9A7C680013F54D /* XCRemoteSwiftPackageReference "supabase-swift" */;
-			productName = Supabase;
+			package = BA9B50722FBDECC300B87C29 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		BA9B50752FBDECC300B87C29 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BA9B50722FBDECC300B87C29 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

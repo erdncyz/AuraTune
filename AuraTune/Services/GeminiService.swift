@@ -106,6 +106,110 @@ class GeminiService {
         }
     }
 
+    // MARK: - Water Motivations
+
+    /// Fetches a batch of motivational water-drinking messages from AI (Groq → Gemini fallback)
+    func getWaterMotivationMessages(
+        count: Int = 12,
+        language: String = "Turkish",
+        dailyGoalLiters: Double = 2.0
+    ) async throws -> [String] {
+        let targetGlasses = max(1, Int((dailyGoalLiters / 0.25).rounded()))
+        let litersText = String(format: "%.1f", dailyGoalLiters)
+        let prompt = """
+        Generate exactly \(count) unique, short water drinking motivation messages in \(language).
+        The user's daily target is \(litersText) liters (~\(targetGlasses) glasses). Reflect this exact target naturally in messages.
+        Each message should be 1-2 sentences max.
+        Include a relevant water, health, or nature emoji at the start.
+        Vary the tone: energetic, gentle, scientific, poetic, funny, motivational.
+        Return ONLY a valid JSON array of strings with no other text, no markdown, no code blocks:
+        ["message1", "message2", ...]
+        """
+        do {
+            return try await fetchMotivationMessagesFromGroq(prompt: prompt, expected: count)
+        } catch {
+            return try await fetchMotivationMessagesFromGemini(prompt: prompt, expected: count)
+        }
+    }
+
+    private func fetchMotivationMessagesFromGroq(prompt: String, expected: Int) async throws -> [String] {
+        guard let url = URL(string: "https://api.groq.com/openai/v1/chat/completions") else {
+            throw URLError(.badURL)
+        }
+        let requestBody: [String: Any] = [
+            "model": "llama-3.3-70b-versatile",
+            "messages": [["role": "user", "content": prompt]],
+            "temperature": 1.1,
+            "max_tokens": 1000
+        ]
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(Secrets.groqAPIKey)", forHTTPHeaderField: "Authorization")
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? -1
+        if status == 429 { throw AIError.rateLimited }
+        guard status == 200 else { throw AIError.badResponse }
+
+        struct GroqResp: Decodable {
+            struct Choice: Decodable {
+                struct Msg: Decodable { let content: String }
+                let message: Msg
+            }
+            let choices: [Choice]
+        }
+        let decoded = try JSONDecoder().decode(GroqResp.self, from: data)
+        guard let content = decoded.choices.first?.message.content else { throw AIError.parseFailure }
+        return try parseMessagesArray(from: content, expected: expected)
+    }
+
+    private func fetchMotivationMessagesFromGemini(prompt: String, expected: Int) async throws -> [String] {
+        let urlString = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=\(Secrets.geminiAPIKey)"
+        guard let url = URL(string: urlString) else { throw URLError(.badURL) }
+        let requestBody: [String: Any] = [
+            "contents": [["parts": [["text": prompt]]]],
+            "generationConfig": ["temperature": 1.1]
+        ]
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: requestBody)
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else { throw AIError.badResponse }
+
+        struct GemResp: Decodable {
+            struct Candidate: Decodable {
+                struct Content: Decodable {
+                    struct Part: Decodable { let text: String }
+                    let parts: [Part]
+                }
+                let content: Content
+            }
+            let candidates: [Candidate]
+        }
+        let decoded = try JSONDecoder().decode(GemResp.self, from: data)
+        guard let text = decoded.candidates.first?.content.parts.first?.text else { throw AIError.parseFailure }
+        return try parseMessagesArray(from: text, expected: expected)
+    }
+
+    private func parseMessagesArray(from text: String, expected: Int) throws -> [String] {
+        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let start = cleaned.firstIndex(of: "["),
+              let end = cleaned.lastIndex(of: "]") else {
+            throw AIError.parseFailure
+        }
+        let jsonStr = String(cleaned[start...end])
+        guard let jsonData = jsonStr.data(using: .utf8),
+              let array = try? JSONDecoder().decode([String].self, from: jsonData),
+              !array.isEmpty else {
+            throw AIError.parseFailure
+        }
+        return array
+    }
+
     func getDailyMix(
         genres: [String],
         responseLanguage: String = "Turkish",
