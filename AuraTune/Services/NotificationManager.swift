@@ -93,6 +93,11 @@ class NotificationManager: NSObject, ObservableObject {
     ) {
         cancelWaterReminders()
         let isEnglish = LanguageManager.shared.currentLanguage == "en"
+        let validatedMessages = sanitizeWaterMessages(
+            messages,
+            isEnglish: isEnglish,
+            dailyGoalLiters: dailyGoalLiters
+        )
 
         let calendar = Calendar.current
         let startComps = calendar.dateComponents([.hour, .minute], from: startTime)
@@ -111,8 +116,8 @@ class NotificationManager: NSObject, ObservableObject {
             content.title = isEnglish ? "💧 Time to Drink Water" : "💧 Su İçme Vakti"
 
             // Use AI-generated motivation message if available, cycle through them
-            if !messages.isEmpty {
-                content.body = messages[index % messages.count]
+            if !validatedMessages.isEmpty {
+                content.body = validatedMessages[index % validatedMessages.count]
             } else {
                 content.body = defaultWaterMessage(
                     isEnglish: isEnglish,
@@ -149,7 +154,85 @@ class NotificationManager: NSObject, ObservableObject {
             return "Your daily target is \(litersText)L (~\(glasses) glasses). Drink a glass now. 💙"
         }
 
-        return "Gunluk hedefin \(litersText) L (~\(glasses) bardak). Simdi bir bardak su ic. 💙"
+        return "Günlük hedefin \(litersText)L (~\(glasses) bardak). Şimdi bir bardak su iç. 💙"
+    }
+
+    private func sanitizeWaterMessages(
+        _ messages: [String],
+        isEnglish: Bool,
+        dailyGoalLiters: Double
+    ) -> [String] {
+        var unique: [String] = []
+
+        for raw in messages {
+            let cleaned = normalizeMessage(raw)
+            guard isValidWaterMessage(cleaned, isEnglish: isEnglish) else { continue }
+            if !unique.contains(cleaned) {
+                unique.append(cleaned)
+            }
+        }
+
+        if unique.isEmpty {
+            return []
+        }
+
+        let fallback = defaultWaterMessage(isEnglish: isEnglish, dailyGoalLiters: dailyGoalLiters)
+        return unique.map { $0.isEmpty ? fallback : $0 }
+    }
+
+    private func normalizeMessage(_ message: String) -> String {
+        message
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .replacingOccurrences(of: "\\s+([,.;:!?])", with: "$1", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func isValidWaterMessage(_ message: String, isEnglish: Bool) -> Bool {
+        guard !message.isEmpty, message.count <= 140 else { return false }
+        guard !containsUnexpectedScript(in: message) else { return false }
+
+        let lower = message.lowercased()
+
+        if isEnglish {
+            // If Turkish-specific letters are present in an English sentence, treat it as mixed language.
+            let turkishChars = CharacterSet(charactersIn: "çğıöşü")
+            if lower.rangeOfCharacter(from: turkishChars) != nil {
+                return false
+            }
+            return true
+        }
+
+        let obviousEnglishWords: Set<String> = [
+            "drink", "water", "healthy", "goal", "daily", "hydration", "glass", "glasses",
+            "body", "energy", "focus", "today", "remember", "time", "keep", "now"
+        ]
+
+        let words = lower
+            .split(whereSeparator: { !$0.isLetter })
+            .map(String.init)
+
+        let englishWordCount = words.reduce(0) { partial, word in
+            partial + (obviousEnglishWords.contains(word) ? 1 : 0)
+        }
+
+        return englishWordCount == 0
+    }
+
+    private func containsUnexpectedScript(in text: String) -> Bool {
+        text.unicodeScalars.contains { scalar in
+            switch scalar.value {
+            case 0x3040...0x30FF,
+                 0x3400...0x4DBF,
+                 0x4E00...0x9FFF,
+                 0xAC00...0xD7AF,
+                 0x0600...0x06FF,
+                 0x0400...0x04FF,
+                 0x0900...0x097F:
+                return true
+            default:
+                return false
+            }
+        }
     }
 
     func cancelWaterReminders() {
