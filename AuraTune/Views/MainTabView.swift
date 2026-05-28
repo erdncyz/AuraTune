@@ -4,6 +4,7 @@ import UserNotifications
 struct MainTabView: View {
     @EnvironmentObject var languageManager: LanguageManager
     @EnvironmentObject var remindersManager: RemindersManager
+    @StateObject private var notificationManager = NotificationManager.shared
     @State private var showNotificationBanner = false
 
     private var isEnglish: Bool { languageManager.currentLanguage == "en" }
@@ -50,7 +51,30 @@ struct MainTabView: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .zIndex(999)
             }
+
+            if let prompt = notificationManager.foregroundPrompt {
+                if prompt.origin == .notificationTap {
+                    ZStack {
+                        Color.black.opacity(0.35)
+                            .ignoresSafeArea()
+                        foregroundPromptCard(prompt)
+                            .padding(.horizontal, 18)
+                    }
+                    .transition(.opacity)
+                    .zIndex(1001)
+                } else {
+                    VStack {
+                        Spacer()
+                        foregroundPromptCard(prompt)
+                            .padding(.horizontal, 14)
+                            .padding(.bottom, 12)
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(1000)
+                }
+            }
         }
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: notificationManager.foregroundPrompt?.id)
         .onAppear {
             checkNotificationPermission()
         }
@@ -126,5 +150,84 @@ struct MainTabView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .shadow(color: Color(hex: "E74C3C").opacity(0.45), radius: 12, x: 0, y: 6)
+    }
+
+    private func foregroundPromptCard(_ prompt: NotificationManager.ForegroundPrompt) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: prompt.type == .water ? "drop.fill" : "pills.fill")
+                    .foregroundColor(.white)
+                Text(prompt.title)
+                    .font(.subheadline.weight(.bold))
+                    .foregroundColor(.white)
+                Spacer()
+                Button(action: {
+                    notificationManager.dismissForegroundPrompt()
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.caption.bold())
+                        .foregroundColor(.white.opacity(0.9))
+                }
+            }
+
+            Text(prompt.body)
+                .font(.caption)
+                .foregroundColor(.white.opacity(0.92))
+                .lineLimit(2)
+
+            HStack(spacing: 10) {
+                if prompt.type == .water {
+                    quickActionButton(
+                        title: isEnglish ? "I Drank" : "Ictim",
+                        color: Color(hex: "1E824C")
+                    ) {
+                        notificationManager.handleForegroundWaterAction(didDrink: true)
+                    }
+
+                    quickActionButton(
+                        title: isEnglish ? "Not Yet" : "Icmedim",
+                        color: Color(hex: "C0392B")
+                    ) {
+                        notificationManager.handleForegroundWaterAction(didDrink: false)
+                    }
+                } else {
+                    quickActionButton(
+                        title: isEnglish ? "I Took It" : "Aldim",
+                        color: Color(hex: "1E824C")
+                    ) {
+                        notificationManager.handleForegroundMedicineAction(tookMedicine: true)
+                    }
+
+                    quickActionButton(
+                        title: isEnglish ? "Skip" : "Atladim",
+                        color: Color(hex: "C0392B")
+                    ) {
+                        notificationManager.handleForegroundMedicineAction(tookMedicine: false)
+                    }
+                }
+            }
+        }
+        .padding(14)
+        .background(
+            LinearGradient(
+                colors: [Color(hex: "273469"), Color(hex: "1F487E"), Color(hex: "376996")],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: .black.opacity(0.25), radius: 10, x: 0, y: 5)
+    }
+
+    private func quickActionButton(title: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.caption.weight(.bold))
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(color)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        }
     }
 }

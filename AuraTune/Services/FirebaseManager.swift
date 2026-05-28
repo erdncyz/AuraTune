@@ -4,6 +4,10 @@ import Combine
 import FirebaseAuth
 import FirebaseFirestore
 
+extension Notification.Name {
+    static let firebaseAuthUserDidChange = Notification.Name("firebaseAuthUserDidChange")
+}
+
 /// Firebase Manager to handle auth and Firestore database interactions
 class FirebaseManager: ObservableObject {
     static let shared = FirebaseManager()
@@ -29,30 +33,120 @@ class FirebaseManager: ObservableObject {
         authListener = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             Task { @MainActor in
                 self?.currentUser = user
-                if user != nil {
+                NotificationCenter.default.post(
+                    name: .firebaseAuthUserDidChange,
+                    object: nil,
+                    userInfo: ["userID": user?.uid as Any]
+                )
+                if let user, !user.isAnonymous {
                     await self?.fetchProfile()
                 } else {
-                    // Sign in anonymously if no user
-                    await self?.signInAnonymously()
+                    self?.userProfile = nil
                 }
             }
         }
         
-        // If user already exists, fetch profile
-        if let user = Auth.auth().currentUser {
+        // If we have an authenticated user from previous session, continue.
+        if let user = Auth.auth().currentUser, !user.isAnonymous {
             self.currentUser = user
             await fetchProfile()
         } else {
-            await signInAnonymously()
+            self.currentUser = nil
+            self.userProfile = nil
         }
         
         DispatchQueue.main.async {
             self.isInitialized = true
         }
     }
-    
-    /// Sign in anonymously
-    private func signInAnonymously() async {
+
+    func register(email: String, password: String, displayName: String?) async throws {
+        let result = try await Auth.auth().createUser(withEmail: email, password: password)
+        if let displayName, !displayName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            try await updateAuthDisplayName(displayName)
+        }
+        DispatchQueue.main.async {
+            self.currentUser = result.user
+        }
+        await fetchProfile()
+    }
+
+    func login(email: String, password: String) async throws {
+        let result = try await Auth.auth().signIn(withEmail: email, password: password)
+        DispatchQueue.main.async {
+            self.currentUser = result.user
+        }
+        await fetchProfile()
+    }
+
+    func signOut() throws {
+        do {
+            try Auth.auth().signOut()
+            DispatchQueue.main.async {
+                self.currentUser = nil
+                self.userProfile = nil
+                NotificationCenter.default.post(
+                    name: .firebaseAuthUserDidChange,
+                    object: nil,
+                    userInfo: ["userID": NSNull()]
+                )
+            }
+        } catch {
+            throw error
+        }
+    }
+
+    func sendPasswordReset(email: String) async throws {
+        try await Auth.auth().sendPasswordReset(withEmail: email)
+    }
+
+    func updateAuthDisplayName(_ name: String) async throws {
+        guard let user = Auth.auth().currentUser else { return }
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return }
+
+        let request = user.createProfileChangeRequest()
+        request.displayName = trimmedName
+        try await request.commitChanges()
+    }
+
+    func suggestedOnboardingName() -> String? {
+        if let profileName = userProfile?.name.trimmingCharacters(in: .whitespacesAndNewlines), !profileName.isEmpty {
+            return profileName
+        }
+
+        if let displayName = currentUser?.displayName?.trimmingCharacters(in: .whitespacesAndNewlines), !displayName.isEmpty {
+            return displayName
+        }
+
+        if let email = currentUser?.email,
+           let localPart = email.split(separator: "@").first {
+            let cleaned = localPart.replacingOccurrences(of: ".", with: " ")
+                .replacingOccurrences(of: "_", with: " ")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !cleaned.isEmpty {
+                return cleaned.capitalized
+            }
+        }
+
+        return nil
+    }
+
+    func deleteCurrentAccount() async throws {
+        guard let user = Auth.auth().currentUser else { return }
+        let userId = user.uid
+
+        try await db.collection("profiles").document(userId).delete()
+        try await user.delete()
+
+        DispatchQueue.main.async {
+            self.currentUser = nil
+            self.userProfile = nil
+        }
+    }
+
+    /// Optional fallback guest mode if needed by product flows.
+    func signInAnonymously() async {
         do {
             let authResult = try await Auth.auth().signInAnonymously()
             DispatchQueue.main.async {
@@ -88,7 +182,9 @@ class FirebaseManager: ObservableObject {
     func saveProfile(_ profile: Profile) async {
         guard let userId = currentUser?.uid else { return }
         var updatedProfile = profile
-        updatedProfile.id = UUID(uuidString: userId) ?? UUID()
+        if updatedProfile.id == nil {
+            updatedProfile.id = UUID(uuidString: userId)
+        }
         
         do {
             try db.collection("profiles").document(userId).setData(from: updatedProfile, merge: true)

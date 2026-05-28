@@ -76,3 +76,65 @@
 
 "Anasayfa" = "Home";
 "Bildirimler" = "Notifications";
+
+"auth.welcomeBack" = "Welcome Back";
+"auth.subtitle" = "Sign in to keep your music profile synced.";
+"auth.mode.login" = "Login";
+"auth.mode.register" = "Register";
+"auth.field.name" = "Full Name";
+"auth.field.email" = "Email";
+"auth.field.password" = "Password";
+"auth.field.confirmPassword" = "Confirm Password";
+"auth.placeholder.name" = "e.g. Alex Johnson";
+"auth.placeholder.email" = "you@example.com";
+"auth.placeholder.password" = "At least 6 chars";
+"auth.placeholder.confirmPassword" = "Repeat password";
+"auth.forgotPassword" = "Forgot password?";
+"auth.submit.login" = "Login";
+"auth.submit.register" = "Create Account";
+"auth.social.google" = "Continue with Google";
+"auth.or" = "or";
+"auth.error.invalidInput" = "Please enter valid credentials.";
+"auth.error.appleAuthFailed" = "Apple authentication failed.";
+"auth.error.appleNonceMissing" = "Apple nonce is missing. Please try again.";
+"auth.error.appleTokenMissing" = "Apple token could not be read.";
+"auth.error.resetEmailRequired" = "Email is required for password reset.";
+"auth.info.resetSent" = "Password reset link has been sent.";
+"auth.error.unexpected" = "An unexpected error occurred.";
+"auth.error.invalidEmail" = "Invalid email address.";
+"auth.error.wrongPassword" = "Wrong password.";
+"auth.error.userNotFound" = "No user found with this email.";
+"auth.error.emailInUse" = "This email is already in use.";
+"auth.error.weakPassword" = "Password must be at least 6 characters.";
+"auth.error.network" = "No internet connection.";
+"auth.error.reauthRequired" = "Please sign in again to continue.";
+
+"water.rewards.title" = "Hydration Rewards";
+"water.rewards.coinUnit" = "coin";
+"water.rewards.action.drank" = "I Drank";
+"water.rewards.action.skipped" = "Not Yet";
+"water.rewards.dailyGoalBonus" = "Daily goal complete bonus: +10 coin";
+"water.rewards.currentStreakFormat" = "Current streak: %d day";
+"water.rewards.bestStreakFormat" = "Best: %d";
+"water.rewards.toNextLevelFormat" = "%d coin to next level";
+"water.rewards.streakBonus" = "7-day streak bonus: +20 coin";
+
+"water.level.bronze" = "Bronze";
+"water.level.silver" = "Silver";
+"water.level.gold" = "Gold";
+"water.level.diamond" = "Diamond";
+
+"water.shop.title" = "Coin Shop";
+"water.shop.owned" = "Owned";
+"water.shop.purchasedFormat" = "Purchased: %@";
+"water.shop.effect.ocean" = "Active: Ocean visuals enabled";
+"water.shop.effect.zen" = "Active: Profile zen badge enabled";
+"water.shop.effect.ai" = "Active: Extended AI message pool";
+"water.shop.effect.zenBadge" = "Zen Badge Active";
+
+"water.shop.item.ocean.title" = "Ocean Theme";
+"water.shop.item.ocean.subtitle" = "Unlock calming blue style";
+"water.shop.item.zen.title" = "Zen Avatar";
+"water.shop.item.zen.subtitle" = "Profile badge upgrade";
+"water.shop.item.ai.title" = "AI Motivation Pack";
+"water.shop.item.ai.subtitle" = "Extra motivational messages";

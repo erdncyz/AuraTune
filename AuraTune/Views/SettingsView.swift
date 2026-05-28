@@ -1,8 +1,10 @@
 import SwiftUI
+import FirebaseAuth
 
 struct SettingsView: View {
     @EnvironmentObject var firebaseManager: FirebaseManager
     @EnvironmentObject var languageManager: LanguageManager
+    @EnvironmentObject var remindersManager: RemindersManager
     @EnvironmentObject var favoritesManager: FavoritesManager
     @EnvironmentObject var historyManager: HistoryManager
     @StateObject private var viewModel = SettingsViewModel()
@@ -10,6 +12,9 @@ struct SettingsView: View {
     @State private var showSavedBadge = false
     @State private var showAbout = false
     @State private var isLibrarySheetPresented = false
+    @State private var authActionError: String?
+    @State private var showDeleteConfirm = false
+    @State private var isDeletingAccount = false
 
     var isEnglish: Bool { languageManager.currentLanguage == "en" }
 
@@ -200,6 +205,69 @@ struct SettingsView: View {
                                 }
                             }
 
+                            sectionCard(icon: "person.crop.circle", iconColor: Color(hex: "7C6AF7"),
+                                        title: isEnglish ? "Account" : "Hesap") {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text(firebaseManager.currentUser?.email ?? (isEnglish ? "Signed in" : "Giriş yapıldı"))
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundColor(.auraOnSurface)
+
+                                    Button(action: {
+                                        do {
+                                            try firebaseManager.signOut()
+                                        } catch {
+                                            authActionError = error.localizedDescription
+                                        }
+                                    }) {
+                                        HStack(spacing: 8) {
+                                            Image(systemName: "rectangle.portrait.and.arrow.right")
+                                            Text(isEnglish ? "Log Out" : "Çıkış Yap")
+                                                .font(.subheadline.weight(.bold))
+                                        }
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .background(Color(hex: "C0392B"))
+                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    }
+
+                                    Button(action: {
+                                        showDeleteConfirm = true
+                                    }) {
+                                        HStack(spacing: 8) {
+                                            if isDeletingAccount {
+                                                ProgressView()
+                                                    .tint(.white)
+                                            } else {
+                                                Image(systemName: "trash.fill")
+                                            }
+                                            Text(isEnglish ? "Delete Account" : "Hesabı Sil")
+                                                .font(.subheadline.weight(.bold))
+                                        }
+                                        .foregroundColor(.white)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .background(Color.black.opacity(0.65))
+                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                    }
+                                    .disabled(isDeletingAccount)
+                                }
+                            }
+
+                            if let authActionError {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "exclamationmark.triangle.fill")
+                                    Text(authActionError)
+                                        .font(.footnote.weight(.semibold))
+                                }
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 10)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Color(hex: "C0392B"))
+                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            }
+
                             // About
                             Button(action: { showAbout = true }) {
                                 HStack(spacing: 14) {
@@ -306,6 +374,24 @@ struct SettingsView: View {
                     viewModel.loadProfile(profile)
                 }
             }
+            .alert(isEnglish ? "Delete Account" : "Hesabı Sil", isPresented: $showDeleteConfirm) {
+                Button(isEnglish ? "Cancel" : "Vazgeç", role: .cancel) {}
+                Button(isEnglish ? "Delete" : "Sil", role: .destructive) {
+                    Task {
+                        isDeletingAccount = true
+                        do {
+                            try await firebaseManager.deleteCurrentAccount()
+                        } catch {
+                            authActionError = error.localizedDescription
+                        }
+                        isDeletingAccount = false
+                    }
+                }
+            } message: {
+                Text(isEnglish
+                     ? "Your profile and account will be permanently deleted."
+                     : "Profilin ve hesabın kalıcı olarak silinecek.")
+            }
         }
         .preferredColorScheme(.light)
     }
@@ -335,6 +421,20 @@ struct SettingsView: View {
                 Text(viewModel.userName.isEmpty ? "AuraTune" : viewModel.userName)
                     .font(.system(size: 34, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
+
+                if remindersManager.hasUnlockedZenAvatar {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 11, weight: .bold))
+                        Text(LocalizedStringKey("water.shop.effect.zenBadge"))
+                            .font(.system(size: 11, weight: .bold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color(hex: "7B1FA2").opacity(0.85))
+                    .clipShape(Capsule())
+                }
 
                 // Stat pills (non-tappable)
                 VStack(alignment: .leading, spacing: 8) {

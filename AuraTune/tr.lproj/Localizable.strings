@@ -76,3 +76,65 @@
 
 "Anasayfa" = "Anasayfa";
 "Bildirimler" = "Bildirimler";
+
+"auth.welcomeBack" = "Tekrar Hoş Geldin";
+"auth.subtitle" = "Müzik profilini senkron tutmak için giriş yap.";
+"auth.mode.login" = "Giriş";
+"auth.mode.register" = "Kayıt Ol";
+"auth.field.name" = "Ad Soyad";
+"auth.field.email" = "E-posta";
+"auth.field.password" = "Şifre";
+"auth.field.confirmPassword" = "Şifre Tekrar";
+"auth.placeholder.name" = "Örn: Aysu Yılmaz";
+"auth.placeholder.email" = "ornek@mail.com";
+"auth.placeholder.password" = "En az 6 karakter";
+"auth.placeholder.confirmPassword" = "Şifreyi tekrar yaz";
+"auth.forgotPassword" = "Şifremi unuttum";
+"auth.submit.login" = "Giriş Yap";
+"auth.submit.register" = "Hesap Oluştur";
+"auth.social.google" = "Google ile Devam Et";
+"auth.or" = "veya";
+"auth.error.invalidInput" = "Lütfen geçerli bilgiler gir.";
+"auth.error.appleAuthFailed" = "Apple kimlik doğrulaması başarısız oldu.";
+"auth.error.appleNonceMissing" = "Apple nonce bulunamadı. Tekrar dene.";
+"auth.error.appleTokenMissing" = "Apple token alınamadı.";
+"auth.error.resetEmailRequired" = "Şifre sıfırlama için e-posta gerekli.";
+"auth.info.resetSent" = "Şifre sıfırlama bağlantısı gönderildi.";
+"auth.error.unexpected" = "Beklenmeyen bir hata oluştu.";
+"auth.error.invalidEmail" = "E-posta adresi geçersiz.";
+"auth.error.wrongPassword" = "Şifre hatalı.";
+"auth.error.userNotFound" = "Bu e-posta ile kullanıcı bulunamadı.";
+"auth.error.emailInUse" = "Bu e-posta zaten kullanımda.";
+"auth.error.weakPassword" = "Şifre en az 6 karakter olmalı.";
+"auth.error.network" = "İnternet bağlantısı yok.";
+"auth.error.reauthRequired" = "Bu işlem için tekrar giriş yapman gerekiyor.";
+
+"water.rewards.title" = "Su Odulleri";
+"water.rewards.coinUnit" = "coin";
+"water.rewards.action.drank" = "Ictim";
+"water.rewards.action.skipped" = "Icmedim";
+"water.rewards.dailyGoalBonus" = "Gunluk hedef tamamlama bonusu: +10 coin";
+"water.rewards.currentStreakFormat" = "Mevcut seri: %d gun";
+"water.rewards.bestStreakFormat" = "En iyi: %d";
+"water.rewards.toNextLevelFormat" = "Sonraki seviye icin %d coin";
+"water.rewards.streakBonus" = "7 gunluk seri bonusu: +20 coin";
+
+"water.level.bronze" = "Bronz";
+"water.level.silver" = "Gumus";
+"water.level.gold" = "Altin";
+"water.level.diamond" = "Elmas";
+
+"water.shop.title" = "Coin Magazasi";
+"water.shop.owned" = "Sende";
+"water.shop.purchasedFormat" = "Satin alindi: %@";
+"water.shop.effect.ocean" = "Aktif: Okyanus gorunumu acik";
+"water.shop.effect.zen" = "Aktif: Profil zen rozeti acik";
+"water.shop.effect.ai" = "Aktif: Genisletilmis AI mesaj havuzu";
+"water.shop.effect.zenBadge" = "Zen Rozeti Aktif";
+
+"water.shop.item.ocean.title" = "Okyanus Tema";
+"water.shop.item.ocean.subtitle" = "Sakin mavi stil kilidini ac";
+"water.shop.item.zen.title" = "Zen Avatar";
+"water.shop.item.zen.subtitle" = "Profil rozetini gelistir";
+"water.shop.item.ai.title" = "AI Motivasyon Paketi";
+"water.shop.item.ai.subtitle" = "Ekstra motivasyon mesajlari";

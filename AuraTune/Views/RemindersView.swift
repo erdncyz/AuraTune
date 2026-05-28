@@ -11,9 +11,23 @@ struct RemindersView: View {
     enum ReminderTab { case water, medicine }
 
     private var heroGradientColors: [Color] {
-        selectedTab == .water
+        if remindersManager.hasUnlockedOceanTheme {
+            return selectedTab == .water
+                ? [Color(hex: "005B96"), Color(hex: "00A8CC")]
+                : [Color(hex: "0B3C5D"), Color(hex: "328CC1")]
+        }
+
+        return selectedTab == .water
             ? [Color(hex: "1A6BB5"), Color(hex: "4FC3F7")]
             : [Color(hex: "6A1B9A"), Color(hex: "AB47BC")]
+    }
+
+    private var selectedTabColor: Color {
+        if remindersManager.hasUnlockedOceanTheme {
+            return selectedTab == .water ? Color(hex: "0077B6") : Color(hex: "0B3C5D")
+        }
+
+        return selectedTab == .water ? Color(hex: "0288D1") : Color(hex: "7B1FA2")
     }
 
     var body: some View {
@@ -114,9 +128,7 @@ struct RemindersView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(
-                    selectedTab == tab
-                        ? (tab == .water ? Color(hex: "0288D1") : Color(hex: "7B1FA2"))
-                        : Color.clear
+                    selectedTab == tab ? selectedTabColor : Color.clear
                 )
                 .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 .padding(4)
@@ -133,6 +145,10 @@ struct WaterReminderSection: View {
     @State private var draftSettings: WaterSettings = WaterSettings()
     @State private var showSaved: Bool = false
     @State private var isLoadingMotivations: Bool = false
+    @State private var shopFeedback: String? = nil
+    @State private var showUndoBanner: Bool = false
+    @State private var lastWaterSnapshot: (settings: WaterSettings, rewards: WaterRewardState)?
+    @State private var undoDismissTask: Task<Void, Never>?
 
     let intervalOptions = [15, 30, 45, 60, 90, 120, 180, 240]
 
@@ -194,8 +210,15 @@ struct WaterReminderSection: View {
         return (comps.hour ?? 0) * 60 + (comps.minute ?? 0)
     }
 
+    private func loc(_ key: String) -> String {
+        LanguageManager.shared.localized(key)
+    }
+
     var body: some View {
         VStack(spacing: 16) {
+            rewardsCard
+            shopCard
+            waterProgressCard
             // Settings Card
             waterSettingsCard
             // Save
@@ -204,6 +227,211 @@ struct WaterReminderSection: View {
         .padding(.horizontal, 20)
         .padding(.top, 16)
         .onAppear { draftSettings = remindersManager.waterSettings }
+    }
+
+    private var rewardsCard: some View {
+        M3Card {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Label(loc("water.rewards.title"), systemImage: "bitcoinsign.circle.fill")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.auraOnSurface)
+                    Spacer()
+                    levelBadge
+                    Text("\(remindersManager.waterRewards.coins) \(loc("water.rewards.coinUnit"))")
+                        .font(.system(size: 16, weight: .heavy))
+                        .foregroundColor(Color(hex: "F39C12"))
+                }
+
+                HStack(spacing: 12) {
+                    rewardPill(
+                        title: loc("water.rewards.action.drank"),
+                        value: "+2",
+                        count: remindersManager.waterRewards.todayDrankActions,
+                        color: Color(hex: "1E824C")
+                    )
+
+                    rewardPill(
+                        title: loc("water.rewards.action.skipped"),
+                        value: "-1",
+                        count: remindersManager.waterRewards.todaySkippedActions,
+                        color: Color(hex: "C0392B")
+                    )
+                }
+
+                Text(loc("water.rewards.dailyGoalBonus"))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.auraOnSurface.opacity(0.6))
+
+                HStack {
+                    Text(String(format: loc("water.rewards.currentStreakFormat"), remindersManager.waterRewards.currentStreakDays))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Color(hex: "0288D1"))
+                    Spacer()
+                    Text(String(format: loc("water.rewards.bestStreakFormat"), remindersManager.waterRewards.bestStreakDays))
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.auraOnSurface.opacity(0.6))
+                }
+
+                if let needed = remindersManager.coinsToNextLevel() {
+                    Text(String(format: loc("water.rewards.toNextLevelFormat"), needed))
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.auraOnSurface.opacity(0.55))
+                }
+
+                Text(loc("water.rewards.streakBonus"))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Color(hex: "7B1FA2"))
+            }
+        }
+    }
+
+    private var levelBadge: some View {
+        let level = remindersManager.rewardLevel
+        let text: String
+        let color: Color
+
+        switch level {
+        case .bronze:
+            text = loc("water.level.bronze")
+            color = Color(hex: "A97142")
+        case .silver:
+            text = loc("water.level.silver")
+            color = Color(hex: "95A5A6")
+        case .gold:
+            text = loc("water.level.gold")
+            color = Color(hex: "F1C40F")
+        case .diamond:
+            text = loc("water.level.diamond")
+            color = Color(hex: "3498DB")
+        }
+
+        return Text(text)
+            .font(.system(size: 11, weight: .bold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(color)
+            .clipShape(Capsule())
+    }
+
+    private var shopCard: some View {
+        M3Card {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Label(loc("water.shop.title"), systemImage: "cart.fill")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.auraOnSurface)
+                    Spacer()
+                    Text("\(remindersManager.waterRewards.ownedShopItems.count) / \(WaterRewardShopItem.allCases.count)")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.auraOnSurface.opacity(0.6))
+                }
+
+                ForEach(WaterRewardShopItem.allCases) { item in
+                    shopRow(item)
+                }
+
+                if let shopFeedback {
+                    Text(shopFeedback)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Color(hex: "1E824C"))
+                        .transition(.opacity)
+                }
+            }
+        }
+    }
+
+    private func shopRow(_ item: WaterRewardShopItem) -> some View {
+        let owned = remindersManager.isShopItemOwned(item)
+        let canBuy = remindersManager.canPurchaseShopItem(item)
+        let isActiveEffect = owned
+
+        return HStack(spacing: 10) {
+            Image(systemName: item.icon)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(Color(hex: "7B1FA2"))
+                .frame(width: 28)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.title(isEnglish: isEnglish))
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.auraOnSurface)
+                Text(effectSubtitle(for: item))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(isActiveEffect ? Color(hex: "1E824C") : .auraOnSurface.opacity(0.55))
+            }
+
+            Spacer()
+
+            if owned {
+                Text(loc("water.shop.owned"))
+                    .font(.system(size: 11, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(Color(hex: "1E824C"))
+                    .clipShape(Capsule())
+            } else {
+                Button {
+                    if remindersManager.purchaseShopItem(item) {
+                        withAnimation {
+                            shopFeedback = String(format: loc("water.shop.purchasedFormat"), item.title(isEnglish: isEnglish))
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.7) {
+                            withAnimation { shopFeedback = nil }
+                        }
+                    }
+                } label: {
+                    Text("\(item.cost) \(loc("water.rewards.coinUnit"))")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(canBuy ? Color(hex: "7B1FA2") : Color.auraOnSurface.opacity(0.3))
+                        .clipShape(Capsule())
+                }
+                .disabled(!canBuy)
+            }
+        }
+        .padding(10)
+        .background(Color.auraOnSurface.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    }
+
+    private func effectSubtitle(for item: WaterRewardShopItem) -> String {
+        if remindersManager.isShopItemOwned(item) {
+            switch item {
+            case .oceanTheme:
+                return loc("water.shop.effect.ocean")
+            case .zenAvatar:
+                return loc("water.shop.effect.zen")
+            case .aiMotivationPack:
+                return loc("water.shop.effect.ai")
+            }
+        }
+
+        return item.subtitle(isEnglish: isEnglish)
+    }
+
+    private func rewardPill(title: String, value: String, count: Int, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.auraOnSurface.opacity(0.6))
+            HStack(spacing: 6) {
+                Text(value)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(color)
+                Text("x\(count)")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.auraOnSurface)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(Color.auraOnSurface.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     // MARK: Progress Card
@@ -248,8 +476,26 @@ struct WaterReminderSection: View {
 
                 // Log button
                 Button {
+                    lastWaterSnapshot = (
+                        settings: remindersManager.waterSettings,
+                        rewards: remindersManager.waterRewards
+                    )
+
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
                         remindersManager.logGlass()
+                        showUndoBanner = true
+                    }
+
+                    undoDismissTask?.cancel()
+                    undoDismissTask = Task {
+                        try? await Task.sleep(nanoseconds: 4_000_000_000)
+                        guard !Task.isCancelled else { return }
+                        await MainActor.run {
+                            withAnimation {
+                                showUndoBanner = false
+                            }
+                            lastWaterSnapshot = nil
+                        }
                     }
                 } label: {
                     HStack(spacing: 8) {
@@ -272,6 +518,37 @@ struct WaterReminderSection: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(remindersManager.waterSettings.glassesToday >= draftSettings.dailyGoalGlasses + 5)
+
+                if showUndoBanner {
+                    HStack(spacing: 10) {
+                        Text(isEnglish ? "Logged. Tap undo if this was accidental." : "Kaydedildi. Yanlislikla bastiysan geri al.")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(.auraOnSurface.opacity(0.7))
+
+                        Spacer()
+
+                        Button {
+                            guard let snapshot = lastWaterSnapshot else { return }
+                            remindersManager.restoreWaterState(settings: snapshot.settings, rewards: snapshot.rewards)
+                            undoDismissTask?.cancel()
+                            withAnimation {
+                                showUndoBanner = false
+                            }
+                            lastWaterSnapshot = nil
+                        } label: {
+                            Text(isEnglish ? "Undo" : "Geri Al")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Color(hex: "C0392B"))
+                                .clipShape(Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    .padding(.top, 2)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
 
                 if remindersManager.waterSettings.litersToday >= draftSettings.dailyGoalLiters {
                     Text(isEnglish ? "🎉 Daily goal achieved!" : "🎉 Günlük hedefe ulaştın!")

@@ -11,6 +11,7 @@ import FirebaseCore
 
 @main
 struct AuraTuneApp: App {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var favoritesManager = FavoritesManager.shared
     @StateObject private var historyManager = HistoryManager.shared
     @StateObject private var remindersManager = RemindersManager.shared
@@ -42,6 +43,11 @@ struct AuraTuneApp: App {
                 .environmentObject(historyManager)
                 .environmentObject(remindersManager)
                 .preferredColorScheme(.light)
+                .onChange(of: scenePhase) { phase in
+                    if phase == .background {
+                        remindersManager.refreshAllReminderSchedules()
+                    }
+                }
         }
     }
 }

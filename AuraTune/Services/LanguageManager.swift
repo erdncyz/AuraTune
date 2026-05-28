@@ -14,4 +14,12 @@ class LanguageManager: ObservableObject {
     var currentLanguageFullName: String {
         return currentLanguage == "tr" ? "Turkish" : "English"
     }
+
+    func localized(_ key: String) -> String {
+        guard let path = Bundle.main.path(forResource: currentLanguage, ofType: "lproj"),
+              let bundle = Bundle(path: path) else {
+            return NSLocalizedString(key, comment: "")
+        }
+        return bundle.localizedString(forKey: key, value: key, table: nil)
+    }
 }

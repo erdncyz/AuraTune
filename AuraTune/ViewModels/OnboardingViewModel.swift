@@ -20,6 +20,13 @@ class OnboardingViewModel: ObservableObject {
         "Turkish Folk", "Turkish Classical", "Arabesque", "Anatolian Rock"
     ]
     let availablePlatforms = ["Spotify", "Apple Music", "YouTube Music"]
+
+    init() {
+        if let suggestedName = FirebaseManager.shared.suggestedOnboardingName(),
+           !suggestedName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            self.userName = suggestedName
+        }
+    }
     
     func toggleGenre(_ genre: String) {
         if selectedGenres.contains(genre) {
@@ -42,6 +49,7 @@ class OnboardingViewModel: ObservableObject {
         )
         
         await FirebaseManager.shared.saveProfile(profile)
+        try? await FirebaseManager.shared.updateAuthDisplayName(userName)
         isSaving = false
     }
 }

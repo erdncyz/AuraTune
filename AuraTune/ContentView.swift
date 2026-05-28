@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import FirebaseAuth
 
 struct ContentView: View {
     @EnvironmentObject var firebaseManager: FirebaseManager
@@ -20,6 +21,8 @@ struct ContentView: View {
                         .font(.system(size: 48, weight: .semibold))
                         .foregroundColor(.white.opacity(0.9))
                 }
+            } else if firebaseManager.currentUser == nil || firebaseManager.currentUser?.isAnonymous == true {
+                AuthView()
             } else if firebaseManager.userProfile != nil {
                 MainTabView()
             } else {
