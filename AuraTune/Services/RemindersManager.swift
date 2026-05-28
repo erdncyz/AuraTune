@@ -36,12 +36,57 @@ struct WaterRewardState: Codable {
     var lastActionDate: Date = Date.distantPast
 }
 
+struct MedicineRewardState: Codable {
+    var coins: Int = 0
+    var todayTookActions: Int = 0
+    var todaySkippedActions: Int = 0
+    var totalTookActions: Int = 0
+    var totalSkippedActions: Int = 0
+    var lastActionDate: Date = Date.distantPast
+}
+
 private struct CloudReminderState: Codable {
     var waterSettings: WaterSettings
     var medicines: [MedicineReminder]
     var waterMotivations: [String]
     var waterRewards: WaterRewardState
+    var medicineRewards: MedicineRewardState
     var updatedAt: Date = Date()
+
+    enum CodingKeys: String, CodingKey {
+        case waterSettings
+        case medicines
+        case waterMotivations
+        case waterRewards
+        case medicineRewards
+        case updatedAt
+    }
+
+    init(
+        waterSettings: WaterSettings,
+        medicines: [MedicineReminder],
+        waterMotivations: [String],
+        waterRewards: WaterRewardState,
+        medicineRewards: MedicineRewardState,
+        updatedAt: Date = Date()
+    ) {
+        self.waterSettings = waterSettings
+        self.medicines = medicines
+        self.waterMotivations = waterMotivations
+        self.waterRewards = waterRewards
+        self.medicineRewards = medicineRewards
+        self.updatedAt = updatedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        waterSettings = try container.decode(WaterSettings.self, forKey: .waterSettings)
+        medicines = try container.decode([MedicineReminder].self, forKey: .medicines)
+        waterMotivations = try container.decodeIfPresent([String].self, forKey: .waterMotivations) ?? []
+        waterRewards = try container.decodeIfPresent(WaterRewardState.self, forKey: .waterRewards) ?? WaterRewardState()
+        medicineRewards = try container.decodeIfPresent(MedicineRewardState.self, forKey: .medicineRewards) ?? MedicineRewardState()
+        updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
+    }
 }
 
 enum WaterRewardLevel: String {
@@ -123,11 +168,13 @@ final class RemindersManager: ObservableObject {
     @Published var medicines: [MedicineReminder] = []
     @Published var waterMotivations: [String] = []
     @Published var waterRewards: WaterRewardState = WaterRewardState()
+    @Published var medicineRewards: MedicineRewardState = MedicineRewardState()
 
     private let waterKey = "aura_waterSettings"
     private let medicineKey = "aura_medicineReminders"
     private let motivationsKey = "aura_waterMotivations"
     private let rewardsKey = "aura_waterRewards"
+    private let medicineRewardsKey = "aura_medicineRewards"
     private let db = Firestore.firestore()
     private var cloudSyncTask: Task<Void, Never>?
 
@@ -184,6 +231,23 @@ final class RemindersManager: ObservableObject {
             addCoins(-1)
             persistRewards()
         }
+    }
+
+    func handleMedicineNotificationAction(tookMedicine: Bool) {
+        resetMedicineRewardsIfNewDay()
+
+        if tookMedicine {
+            medicineRewards.todayTookActions += 1
+            medicineRewards.totalTookActions += 1
+            addMedicineCoins(1)
+        } else {
+            medicineRewards.todaySkippedActions += 1
+            medicineRewards.totalSkippedActions += 1
+            addMedicineCoins(-1)
+        }
+
+        medicineRewards.lastActionDate = Date()
+        persistMedicineRewards()
     }
 
     var rewardLevel: WaterRewardLevel {
@@ -356,6 +420,10 @@ final class RemindersManager: ObservableObject {
            let decoded = try? JSONDecoder().decode(WaterRewardState.self, from: data) {
             waterRewards = decoded
         }
+        if let data = UserDefaults.standard.data(forKey: medicineRewardsKey),
+           let decoded = try? JSONDecoder().decode(MedicineRewardState.self, from: data) {
+            medicineRewards = decoded
+        }
     }
 
     private func persistWater() {
@@ -373,6 +441,12 @@ final class RemindersManager: ObservableObject {
     private func persistRewards() {
         guard let data = try? JSONEncoder().encode(waterRewards) else { return }
         UserDefaults.standard.set(data, forKey: rewardsKey)
+        enqueueCloudSync()
+    }
+
+    private func persistMedicineRewards() {
+        guard let data = try? JSONEncoder().encode(medicineRewards) else { return }
+        UserDefaults.standard.set(data, forKey: medicineRewardsKey)
         enqueueCloudSync()
     }
 
@@ -419,6 +493,7 @@ final class RemindersManager: ObservableObject {
             medicines: medicines,
             waterMotivations: waterMotivations,
             waterRewards: waterRewards,
+            medicineRewards: medicineRewards,
             updatedAt: Date()
         )
 
@@ -453,6 +528,7 @@ final class RemindersManager: ObservableObject {
         medicines = state.medicines
         waterMotivations = state.waterMotivations
         waterRewards = state.waterRewards
+        medicineRewards = state.medicineRewards
 
         // Persist locally as cache without triggering additional network writes.
         if let waterData = try? JSONEncoder().encode(waterSettings) {
@@ -467,6 +543,9 @@ final class RemindersManager: ObservableObject {
         if let rewardData = try? JSONEncoder().encode(waterRewards) {
             UserDefaults.standard.set(rewardData, forKey: rewardsKey)
         }
+        if let medicineRewardData = try? JSONEncoder().encode(medicineRewards) {
+            UserDefaults.standard.set(medicineRewardData, forKey: medicineRewardsKey)
+        }
 
         restoreSchedulesIfNeeded()
     }
@@ -474,6 +553,14 @@ final class RemindersManager: ObservableObject {
     private func resetRewardsIfNewDay() {
         guard !Calendar.current.isDateInToday(waterRewards.lastActionDate) else { return }
         resetRewardsForNewDay()
+    }
+
+    private func resetMedicineRewardsIfNewDay() {
+        guard !Calendar.current.isDateInToday(medicineRewards.lastActionDate) else { return }
+        medicineRewards.todayTookActions = 0
+        medicineRewards.todaySkippedActions = 0
+        medicineRewards.lastActionDate = Date()
+        persistMedicineRewards()
     }
 
     private func resetRewardsForNewDay() {
@@ -526,6 +613,10 @@ final class RemindersManager: ObservableObject {
 
     private func addCoins(_ delta: Int) {
         waterRewards.coins = max(0, waterRewards.coins + delta)
+    }
+
+    private func addMedicineCoins(_ delta: Int) {
+        medicineRewards.coins = max(0, medicineRewards.coins + delta)
     }
 
     private func restoreSchedulesIfNeeded() {

@@ -138,3 +138,9 @@
 "water.shop.item.zen.subtitle" = "Profile badge upgrade";
 "water.shop.item.ai.title" = "AI Motivation Pack";
 "water.shop.item.ai.subtitle" = "Extra motivational messages";
+
+"medicine.rewards.title" = "Medicine Rewards";
+"medicine.rewards.coinUnit" = "coin";
+"medicine.rewards.action.took" = "I Took It";
+"medicine.rewards.action.skipped" = "Skipped";
+"medicine.rewards.caption" = "Earn medicine coin rewards from notification actions";

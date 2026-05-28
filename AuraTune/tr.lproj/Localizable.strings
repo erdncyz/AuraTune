@@ -138,3 +138,9 @@
 "water.shop.item.zen.subtitle" = "Profil rozetini gelistir";
 "water.shop.item.ai.title" = "AI Motivasyon Paketi";
 "water.shop.item.ai.subtitle" = "Ekstra motivasyon mesajlari";
+
+"medicine.rewards.title" = "Ilac Odulleri";
+"medicine.rewards.coinUnit" = "coin";
+"medicine.rewards.action.took" = "Aldim";
+"medicine.rewards.action.skipped" = "Atladim";
+"medicine.rewards.caption" = "Bildirim aksiyonlarindan ilac coin kazanimi";

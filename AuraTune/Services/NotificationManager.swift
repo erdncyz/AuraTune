@@ -452,13 +452,14 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
         }
 
         if categoryID == NotificationCategory.medicine {
-            // Reserve for medicine adherence tracking in future.
-            if actionID == MedicineAction.took {
-                print("[NotificationManager] Medicine action: took")
-            } else if actionID == MedicineAction.skipped {
-                print("[NotificationManager] Medicine action: skipped")
+            Task { @MainActor in
+                if actionID == MedicineAction.took {
+                    RemindersManager.shared.handleMedicineNotificationAction(tookMedicine: true)
+                } else if actionID == MedicineAction.skipped {
+                    RemindersManager.shared.handleMedicineNotificationAction(tookMedicine: false)
+                }
+                completionHandler()
             }
-            completionHandler()
             return
         }
         
@@ -482,12 +483,8 @@ extension NotificationManager: UNUserNotificationCenterDelegate {
     }
 
     func handleForegroundMedicineAction(tookMedicine: Bool) {
-        if tookMedicine {
-            print("[NotificationManager] Foreground medicine action: took")
-        } else {
-            print("[NotificationManager] Foreground medicine action: skipped")
-        }
         Task { @MainActor in
+            RemindersManager.shared.handleMedicineNotificationAction(tookMedicine: tookMedicine)
             foregroundPrompt = nil
         }
     }

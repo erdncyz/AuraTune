@@ -761,8 +761,14 @@ struct MedicineReminderSection: View {
     @State private var showAddSheet: Bool = false
     @State private var editingMedicine: MedicineReminder? = nil
 
+    private func loc(_ key: String) -> String {
+        LanguageManager.shared.localized(key)
+    }
+
     var body: some View {
         VStack(spacing: 16) {
+            medicineRewardsCard
+
             // List
             if remindersManager.medicines.isEmpty {
                 emptyState
@@ -808,6 +814,62 @@ struct MedicineReminderSection: View {
                 remindersManager.updateMedicine(updated)
             }
         }
+    }
+
+    private var medicineRewardsCard: some View {
+        M3Card {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Label(loc("medicine.rewards.title"), systemImage: "cross.case.fill")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundColor(.auraOnSurface)
+                    Spacer()
+                    Text("\(remindersManager.medicineRewards.coins) \(loc("medicine.rewards.coinUnit"))")
+                        .font(.system(size: 16, weight: .heavy))
+                        .foregroundColor(Color(hex: "F39C12"))
+                }
+
+                HStack(spacing: 12) {
+                    medicineRewardPill(
+                        title: loc("medicine.rewards.action.took"),
+                        value: "+1",
+                        count: remindersManager.medicineRewards.todayTookActions,
+                        color: Color(hex: "1E824C")
+                    )
+
+                    medicineRewardPill(
+                        title: loc("medicine.rewards.action.skipped"),
+                        value: "-1",
+                        count: remindersManager.medicineRewards.todaySkippedActions,
+                        color: Color(hex: "C0392B")
+                    )
+                }
+
+                Text(loc("medicine.rewards.caption"))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.auraOnSurface.opacity(0.6))
+            }
+        }
+    }
+
+    private func medicineRewardPill(title: String, value: String, count: Int, color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundColor(.auraOnSurface.opacity(0.6))
+            HStack(spacing: 6) {
+                Text(value)
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(color)
+                Text("x\(count)")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundColor(.auraOnSurface)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(Color.auraOnSurface.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private var emptyState: some View {
