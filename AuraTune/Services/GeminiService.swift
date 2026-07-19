@@ -323,8 +323,8 @@ class GeminiService {
         - Return only the sentence.
 
         Great style examples:
-        - Piyanonun ilk notasindan itibaren icini bir huzun saracak, ama hos bir huzun.
-        - Bas gitar omurgani titretirken vokal sanki kulagina fisildıyor, garip ama bagimlilık yapıyor.
+        - Piyanonun ilk notasından itibaren içini bir hüzün saracak, ama hoş bir hüzün.
+        - Bas gitar omurganı titretirken vokal sanki kulağına fısıldıyor, garip ama bağımlılık yapıyor.
         - Sözleri basit ama tam kalbine dokunan cinsten, yalnız bir aksam için biçilmiş kaftan.
         - The guitar riff lingers like a memory you can't shake, and the chorus hits even harder the second time.
         - A slow burn that builds into something unexpectedly beautiful by the final verse.
@@ -453,7 +453,7 @@ class GeminiService {
             return "\(title) by \(artist) has a steady pull that makes it easy to stay with."
         }
 
-        return "\(artist) - \(title), duygusunu hizli veren ve icine kolay girilen bir parca."
+        return "\(artist) - \(title), duygusunu hızlı veren ve içine kolay girilen bir parça."
     }
 
         private func buildMoodPrompt(

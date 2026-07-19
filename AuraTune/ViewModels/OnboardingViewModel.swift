@@ -11,6 +11,7 @@ class OnboardingViewModel: ObservableObject {
     @Published var selectedSongLanguage: SongLanguagePreference = .random
     
     @Published var isSaving = false
+    @Published var errorMessage: String?
     
     let availableGenres = [
         "Pop", "Rock", "Lo-Fi", "Jazz", "Classical", "Hip-Hop", "Electronic", "Indie",
@@ -40,6 +41,9 @@ class OnboardingViewModel: ObservableObject {
     
     func completeOnboarding() async {
         isSaving = true
+        errorMessage = nil
+        defer { isSaving = false }
+
         let profile = Profile(
             name: userName,
             wakeUpTime: wakeUpTime,
@@ -47,9 +51,14 @@ class OnboardingViewModel: ObservableObject {
             platform: selectedPlatform,
             songLanguage: selectedSongLanguage
         )
-        
-        await FirebaseManager.shared.saveProfile(profile)
-        try? await FirebaseManager.shared.updateAuthDisplayName(userName)
-        isSaving = false
+
+        do {
+            try await FirebaseManager.shared.saveProfile(profile)
+            try? await FirebaseManager.shared.updateAuthDisplayName(userName)
+        } catch {
+            errorMessage = LanguageManager.shared.currentLanguage == "en"
+                ? "Your profile could not be saved. Check your connection and try again."
+                : "Profilin kaydedilemedi. Bağlantını kontrol edip tekrar dene."
+        }
     }
 }

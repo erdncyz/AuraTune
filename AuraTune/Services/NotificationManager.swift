@@ -60,11 +60,12 @@ class NotificationManager: NSObject, ObservableObject {
         registerNotificationCategories()
     }
     
-    func requestAuthorization() {
+    func requestAuthorization(completion: ((Bool) -> Void)? = nil) {
         registerNotificationCategories()
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
             if let error = error {
                 print("Notification authorization error: \(error)")
+                DispatchQueue.main.async { completion?(false) }
                 return
             }
 
@@ -73,6 +74,8 @@ class NotificationManager: NSObject, ObservableObject {
                     RemindersManager.shared.refreshAllReminderSchedules()
                 }
             }
+
+            DispatchQueue.main.async { completion?(granted) }
         }
     }
 
@@ -81,13 +84,13 @@ class NotificationManager: NSObject, ObservableObject {
 
         let drankAction = UNNotificationAction(
             identifier: WaterAction.drank,
-            title: isEnglish ? "I Drank" : "Ictim",
+            title: isEnglish ? "I Drank" : "İçtim",
             options: []
         )
 
         let skippedAction = UNNotificationAction(
             identifier: WaterAction.skipped,
-            title: isEnglish ? "Not Yet" : "Icmedim",
+            title: isEnglish ? "Not Yet" : "İçmedim",
             options: []
         )
 
@@ -103,12 +106,12 @@ class NotificationManager: NSObject, ObservableObject {
             actions: [
                 UNNotificationAction(
                     identifier: MedicineAction.took,
-                    title: isEnglish ? "I Took It" : "Aldim",
+                    title: isEnglish ? "I Took It" : "Aldım",
                     options: []
                 ),
                 UNNotificationAction(
                     identifier: MedicineAction.skipped,
-                    title: isEnglish ? "Skip" : "Atladim",
+                    title: isEnglish ? "Skip" : "Atladım",
                     options: []
                 )
             ],

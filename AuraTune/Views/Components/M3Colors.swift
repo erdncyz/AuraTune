@@ -26,17 +26,35 @@ extension Color {
     }
 }
 
-/// Material Design 3 Style Colors (Aura Design System)
+/// AuraTune's shared visual language.
 struct M3Colors {
-    static let primary = Color(hex: "FF9E66")
-    static let primaryDark = Color(hex: "994A1A") // Dark orange / brown for primary buttons
-    static let secondary = Color(hex: "FFD966")
-    static let tertiary = Color(hex: "8B5CF6")
-    static let neutral = Color(hex: "1E1B4B") // Dark navy for text
-    
-    static let surface = Color(hex: "FDF8F5") // Very light tint of primary
-    static let surfaceVariant = Color.white   // Cards are mostly white
-    static let onSurface = Color(hex: "1E1B4B") // Neutral text
+    static let primary = Color(hex: "C44F35")
+    static let primaryDark = Color(hex: "8E3522")
+    static let secondary = Color(hex: "D5A33F")
+    static let tertiary = Color(hex: "2F7773")
+    static let neutral = Color(hex: "1C2027")
+
+    static let surface = Color(hex: "F5F3F0")
+    static let surfaceVariant = Color(hex: "FCFBF9")
+    static let surfaceElevated = Color.white
+    static let onSurface = Color(hex: "1C2027")
+    static let onSurfaceSecondary = Color(hex: "666970")
+    static let outline = Color(hex: "DDD9D4")
+    static let deepAccent = Color(hex: "252A33")
+
+    static let success = Color(hex: "2F7655")
+    static let warning = Color(hex: "A96B18")
+    static let danger = Color(hex: "B6423C")
+}
+
+enum AuraMetrics {
+    static let pagePadding: CGFloat = 20
+    static let sectionSpacing: CGFloat = 24
+    static let cardPadding: CGFloat = 18
+    static let cardRadius: CGFloat = 8
+    static let controlRadius: CGFloat = 12
+    static let minimumTapTarget: CGFloat = 44
+    static let contentMaxWidth: CGFloat = 760
 }
 
 /// Helper extension for easy theme access
@@ -49,5 +67,13 @@ extension Color {
     
     static var auraSurface: Color { M3Colors.surface }
     static var auraSurfaceVariant: Color { M3Colors.surfaceVariant }
+    static var auraSurfaceElevated: Color { M3Colors.surfaceElevated }
     static var auraOnSurface: Color { M3Colors.onSurface }
+    static var auraTextSecondary: Color { M3Colors.onSurfaceSecondary }
+    static var auraOutline: Color { M3Colors.outline }
+    static var auraDeepAccent: Color { M3Colors.deepAccent }
+
+    static var auraSuccess: Color { M3Colors.success }
+    static var auraWarning: Color { M3Colors.warning }
+    static var auraDanger: Color { M3Colors.danger }
 }

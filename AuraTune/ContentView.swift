@@ -16,11 +16,30 @@ struct ContentView: View {
         Group {
             if !firebaseManager.isInitialized {
                 ZStack {
-                    Color(hex: "994A1A").ignoresSafeArea()
-                    Image(systemName: "music.note")
-                        .font(.system(size: 48, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.9))
+                    Color.auraDeepAccent.ignoresSafeArea()
+
+                    VStack(spacing: 18) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous)
+                                .fill(Color.auraPrimary.opacity(0.16))
+                            RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous)
+                                .stroke(Color.auraPrimary.opacity(0.35), lineWidth: 1)
+                            Image(systemName: "waveform")
+                                .font(.system(size: 28, weight: .semibold))
+                                .foregroundStyle(Color.auraPrimary)
+                        }
+                        .frame(width: 68, height: 68)
+
+                        Text("AuraTune")
+                            .font(.system(size: 30, weight: .bold, design: .serif))
+                            .foregroundStyle(.white)
+
+                        ProgressView()
+                            .tint(.white.opacity(0.75))
+                            .padding(.top, 4)
+                    }
                 }
+                .accessibilityLabel(languageManager.currentLanguage == "en" ? "AuraTune is loading" : "AuraTune yükleniyor")
             } else if firebaseManager.currentUser == nil || firebaseManager.currentUser?.isAnonymous == true {
                 AuthView()
             } else if firebaseManager.userProfile != nil {

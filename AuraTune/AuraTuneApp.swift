@@ -20,17 +20,14 @@ struct AuraTuneApp: App {
         // Configure Firebase
         FirebaseApp.configure()
         
-        // Setup Local Notifications
-        NotificationManager.shared.requestAuthorization()
-
-        // Force tab bar background to match app surface color (krem)
+        // Keep system tab bars aligned with the app when presented in sheets.
         let tabAppearance = UITabBarAppearance()
         tabAppearance.configureWithOpaqueBackground()
-        tabAppearance.backgroundColor = UIColor(red: 0xFD/255.0,
-                                                green: 0xF8/255.0,
-                                                blue: 0xF5/255.0,
+        tabAppearance.backgroundColor = UIColor(red: 0xF5/255.0,
+                            green: 0xF3/255.0,
+                            blue: 0xF0/255.0,
                                                 alpha: 1.0)
-        tabAppearance.shadowColor = .clear
+        tabAppearance.shadowColor = UIColor.black.withAlphaComponent(0.08)
         UITabBar.appearance().standardAppearance = tabAppearance
         UITabBar.appearance().scrollEdgeAppearance = tabAppearance
     }
@@ -43,7 +40,7 @@ struct AuraTuneApp: App {
                 .environmentObject(historyManager)
                 .environmentObject(remindersManager)
                 .preferredColorScheme(.light)
-                .onChange(of: scenePhase) { phase in
+                .onChange(of: scenePhase) { _, phase in
                     if phase == .background {
                         remindersManager.refreshAllReminderSchedules()
                     }

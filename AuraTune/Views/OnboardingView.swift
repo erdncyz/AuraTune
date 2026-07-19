@@ -3,301 +3,300 @@ import SwiftUI
 struct OnboardingView: View {
     @StateObject private var viewModel = OnboardingViewModel()
     @EnvironmentObject var languageManager: LanguageManager
-    
-    var isEnglish: Bool { languageManager.currentLanguage == "en" }
-    
+    @FocusState private var isNameFocused: Bool
+
+    private var isEnglish: Bool { languageManager.currentLanguage == "en" }
+    private var canComplete: Bool {
+        !viewModel.selectedGenres.isEmpty
+            && !viewModel.userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && !viewModel.isSaving
+    }
+
+    private let genreColumns = [
+        GridItem(.adaptive(minimum: 92), spacing: 8, alignment: .leading)
+    ]
+
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .top) {
-                Color.auraSurface.ignoresSafeArea()
-                
-                LinearGradient(
-                    colors: [Color(hex: "994A1A"), Color.auraPrimary, Color(hex: "FFD966").opacity(0.8)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
+            AuraFixedHeaderLayout {
+                AuraPageHeader(
+                    eyebrow: isEnglish ? "Make it yours" : "Sana özel",
+                    title: isEnglish ? "Tune your profile" : "Profilini ayarla",
+                    subtitle: isEnglish
+                        ? "A few choices shape every recommendation."
+                        : "Birkaç seçim, tüm önerilerini sana göre şekillendirir.",
+                    icon: "slider.horizontal.3",
+                    accent: .auraSecondary
                 )
-                .frame(height: 280)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .ignoresSafeArea(edges: .top)
-                
-                VStack(spacing: -8) {
-                    heroHeader
-                    
-                    ScrollView(showsIndicators: false) {
-                        VStack(spacing: 16) {
-                            
-                            // Language Selection
-                            sectionCard(icon: "globe", iconColor: Color(hex: "7C6AF7"),
-                                        title: isEnglish ? "Language" : "Dil") {
-                                HStack {
-                                    Text(isEnglish ? "App Language" : "Uygulama Dili")
-                                        .font(.subheadline)
-                                        .foregroundColor(.auraOnSurface.opacity(0.7))
-                                    Spacer()
-                                    Picker("", selection: $languageManager.currentLanguage) {
-                                        Text("TR").tag("tr")
-                                        Text("EN").tag("en")
-                                    }
-                                    .pickerStyle(.segmented)
-                                    .frame(width: 110)
-                                }
-                            }
-                            .padding(.top, 8)
+            } content: {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: AuraMetrics.sectionSpacing) {
+                        preferenceSection
+                        personalSection
+                        genreSection
+                        platformSection
 
-                            sectionCard(icon: "music.mic", iconColor: Color(hex: "5AC8FA"),
-                                        title: isEnglish ? "Song Language" : "Şarkı Dili") {
-                                VStack(alignment: .leading, spacing: 12) {
-                                    Text(isEnglish
-                                         ? "Choose the language of recommended songs"
-                                         : "Önerilen şarkıların dilini seç")
-                                        .font(.subheadline)
-                                        .foregroundColor(.auraOnSurface.opacity(0.7))
-
-                                    HStack(spacing: 10) {
-                                        ForEach(SongLanguagePreference.allCases) { option in
-                                            let isSelected = viewModel.selectedSongLanguage == option
-                                            Button(action: { viewModel.selectedSongLanguage = option }) {
-                                                Text(option.title(isEnglish: isEnglish))
-                                                    .font(.caption.weight(.semibold))
-                                                    .foregroundColor(isSelected ? .white : .auraOnSurface)
-                                                    .frame(maxWidth: .infinity)
-                                                    .padding(.vertical, 12)
-                                                    .background(isSelected ? Color.auraPrimary : Color.auraSurface)
-                                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                                    .overlay(
-                                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                                            .stroke(isSelected ? Color.auraPrimary : Color.auraOnSurface.opacity(0.1), lineWidth: 1)
-                                                    )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            // User Name
-                            sectionCard(icon: "person.fill", iconColor: Color(hex: "F4845F"),
-                                        title: isEnglish ? "Your Name" : "Adın Ne?") {
-                                TextField(isEnglish ? "e.g. Alex" : "Örn: Aysu",
-                                          text: $viewModel.userName)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 12)
-                                    .background(Color.auraSurface)
-                                    .cornerRadius(12)
-                                    .font(.body)
-                                    .foregroundColor(.auraOnSurface)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.auraOnSurface.opacity(0.12), lineWidth: 1)
-                                    )
-                            }
-                            
-                            // Time Picker
-                            sectionCard(icon: "alarm.fill", iconColor: Color(hex: "FF9E66"),
-                                        title: isEnglish ? "Wake Up Time" : "Uyanma Saatin") {
-                                HStack {
-                                    Text(isEnglish ? "Wake Up Time" : "Uyanma Saati")
-                                        .font(.subheadline)
-                                        .foregroundColor(.auraOnSurface.opacity(0.7))
-                                    Spacer()
-                                    DatePicker("", selection: $viewModel.wakeUpTime, displayedComponents: .hourAndMinute)
-                                        .datePickerStyle(.compact)
-                                        .labelsHidden()
-                                        .tint(.auraPrimary)
-                                }
-                            }
-                            
-                            // Genre selection
-                            sectionCard(icon: "music.note.list", iconColor: Color(hex: "34C759"),
-                                        title: isEnglish
-                                            ? "Favorite Genres (Max \(Profile.maxGenreSelection))"
-                                            : "Sevdiğin Türler (Maks \(Profile.maxGenreSelection))") {
-                                ScrollView(.horizontal, showsIndicators: true) {
-                                    LazyHGrid(rows: [GridItem(.fixed(36)), GridItem(.fixed(36))], spacing: 10) {
-                                        ForEach(viewModel.availableGenres, id: \.self) { genre in
-                                            let isSelected = viewModel.selectedGenres.contains(genre)
-                                            
-                                            Button(action: {
-                                                withAnimation(.spring(response: 0.3)) {
-                                                    viewModel.toggleGenre(genre)
-                                                }
-                                            }) {
-                                                Text(LocalizedStringKey(genre))
-                                                    .font(.caption.weight(.semibold))
-                                                    .padding(.vertical, 7)
-                                                    .padding(.horizontal, 14)
-                                                    .background(isSelected ? Color.auraPrimary : Color.auraSurface)
-                                                    .foregroundColor(isSelected ? .white : Color.auraOnSurface.opacity(0.8))
-                                                    .clipShape(Capsule())
-                                                    .overlay(
-                                                        Capsule()
-                                                            .stroke(isSelected ? Color.auraPrimary : Color.auraOnSurface.opacity(0.2), lineWidth: 1)
-                                                    )
-                                                    .scaleEffect(isSelected ? 1.04 : 1.0)
-                                            }
-                                        }
-                                    }
-                                    .padding(.bottom, 10)
-                                    .padding(.horizontal, 2)
-                                }
-                                .frame(height: 96)
-                            }
-                            
-                            // Platform selection
-                            sectionCard(icon: "headphones", iconColor: Color(hex: "FF2D55"),
-                                        title: isEnglish ? "Music Platform" : "Müzik Uygulaması") {
-                                VStack(spacing: 10) {
-                                    ForEach(viewModel.availablePlatforms, id: \.self) { platform in
-                                        let isSelected = viewModel.selectedPlatform == platform
-                                        Button(action: { viewModel.selectedPlatform = platform }) {
-                                            HStack(spacing: 12) {
-                                                Image(systemName: platformIcon(platform))
-                                                    .font(.system(size: 18, weight: .semibold))
-                                                    .foregroundColor(isSelected ? .white : .auraOnSurface.opacity(0.6))
-                                                    .frame(width: 32, height: 32)
-                                                    .background(isSelected ? Color.auraPrimary : Color.auraSurface)
-                                                    .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                                                Text(platform)
-                                                    .font(.subheadline.weight(.medium))
-                                                    .foregroundColor(.auraOnSurface)
-                                                Spacer()
-                                                if isSelected {
-                                                    Image(systemName: "checkmark.circle.fill")
-                                                        .foregroundColor(.auraPrimary)
-                                                        .font(.system(size: 20))
-                                                }
-                                            }
-                                            .padding(.horizontal, 14)
-                                            .padding(.vertical, 12)
-                                            .background(isSelected ? Color.auraPrimary.opacity(0.08) : Color.auraSurface)
-                                            .cornerRadius(12)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 12)
-                                                    .stroke(isSelected ? Color.auraPrimary.opacity(0.4) : Color.auraOnSurface.opacity(0.1), lineWidth: 1)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            // Submit Button
-                            Button(action: {
-                                Task {
-                                    await viewModel.completeOnboarding()
-                                }
-                            }) {
-                                HStack(spacing: 8) {
-                                    if viewModel.isSaving {
-                                        ProgressView().tint(.white)
-                                    } else {
-                                        Image(systemName: "sparkles")
-                                        Text(isEnglish ? "Complete Setup" : "Kurulumu Tamamla")
-                                    }
-                                }
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 16)
-                                .background(
-                                    LinearGradient(
-                                        colors: [Color.auraPrimary, Color(hex: "F4845F")],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .cornerRadius(18)
-                                .shadow(color: Color.auraPrimary.opacity(0.35), radius: 12, x: 0, y: 6)
-                            }
-                            .disabled(viewModel.selectedGenres.isEmpty || viewModel.userName.trimmingCharacters(in: .whitespaces).isEmpty || viewModel.isSaving)
-                            .opacity((viewModel.selectedGenres.isEmpty || viewModel.userName.trimmingCharacters(in: .whitespaces).isEmpty) ? 0.5 : 1.0)
-                            .padding(.top, 4)
-                            .padding(.bottom, 32)
+                        if let errorMessage = viewModel.errorMessage {
+                            onboardingError(errorMessage)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 0)
-                        .padding(.bottom, 32)
+                    }
+                    .padding(.horizontal, AuraMetrics.pagePadding)
+                    .padding(.top, 22)
+                    .padding(.bottom, 28)
+                    .auraContentColumn()
+                }
+                .scrollDismissesKeyboard(.interactively)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                completionBar
+            }
+            .navigationBarHidden(true)
+        }
+        .preferredColorScheme(.light)
+    }
+
+    private var preferenceSection: some View {
+        AuraSectionCard(
+            title: isEnglish ? "Language preferences" : "Dil tercihleri",
+            subtitle: isEnglish ? "For the app and the music you hear" : "Uygulama ve dinleyeceğin müzikler için",
+            icon: "globe",
+            tint: .auraTertiary
+        ) {
+            VStack(spacing: 16) {
+                HStack(spacing: 12) {
+                    Text(isEnglish ? "App language" : "Uygulama dili")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(Color.auraOnSurface)
+                    Spacer()
+                    Picker("", selection: $languageManager.currentLanguage) {
+                        Text("TR").tag("tr")
+                        Text("EN").tag("en")
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .frame(width: 116)
+                }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(isEnglish ? "Song language" : "Şarkı dili")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.auraTextSecondary)
+
+                    HStack(spacing: 8) {
+                        ForEach(SongLanguagePreference.allCases) { option in
+                            selectionButton(
+                                title: option.title(isEnglish: isEnglish),
+                                isSelected: viewModel.selectedSongLanguage == option
+                            ) {
+                                viewModel.selectedSongLanguage = option
+                            }
+                        }
                     }
                 }
             }
-            .navigationBarHidden(true)
-            .preferredColorScheme(.light)
         }
     }
-    
-    // MARK: - Hero Header
-    private var heroHeader: some View {
-        ZStack(alignment: .bottomLeading) {
-            // Decorative circles
-            Circle()
-                .fill(Color.white.opacity(0.06))
-                .frame(width: 200, height: 200)
-                .offset(x: 200, y: -20)
-            Circle()
-                .fill(Color.white.opacity(0.05))
-                .frame(width: 140, height: 140)
-                .offset(x: 240, y: 40)
-            Circle()
-                .fill(Color.white.opacity(0.04))
-                .frame(width: 80, height: 80)
-                .offset(x: -20, y: -60)
-            
-            // Text content
-            VStack(alignment: .leading, spacing: 6) {
-                Text(isEnglish ? "Welcome to" : "Hoş Geldin")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.85))
-                
-                Text(isEnglish ? "AuraTune" : "AuraTune")
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
-                
-                Text(isEnglish ? "Discover your sound" : "Müzik kişiliğini oluştur")
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.75))
-            }
-            .padding(.leading, 20)
-            .padding(.bottom, 28)
-        }
-        .frame(height: 280)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-    
-    // MARK: - Section Card Builder
-    @ViewBuilder
-    private func sectionCard<Content: View>(
-        icon: String,
-        iconColor: Color,
-        title: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(iconColor.opacity(0.15))
-                        .frame(width: 32, height: 32)
-                    Image(systemName: icon)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(iconColor)
+
+    private var personalSection: some View {
+        AuraSectionCard(
+            title: isEnglish ? "Your rhythm" : "Senin ritmin",
+            subtitle: isEnglish ? "How we address you and start your day" : "Sana nasıl hitap edelim ve günün ne zaman başlasın",
+            icon: "person.fill",
+            tint: .auraPrimary
+        ) {
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text(isEnglish ? "Your name" : "Adın")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.auraTextSecondary)
+                    HStack(spacing: 10) {
+                        Image(systemName: "person")
+                            .foregroundStyle(isNameFocused ? Color.auraPrimary : Color.auraTextSecondary)
+                            .frame(width: 20)
+                        TextField(isEnglish ? "e.g. Alex" : "Örn: Aysu", text: $viewModel.userName)
+                            .focused($isNameFocused)
+                            .textContentType(.name)
+                            .textInputAutocapitalization(.words)
+                            .submitLabel(.done)
+                            .onSubmit { isNameFocused = false }
+                    }
+                    .auraField(isFocused: isNameFocused)
                 }
-                Text(title)
-                    .font(.headline)
-                    .foregroundColor(.auraOnSurface)
+
+                Divider()
+
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(isEnglish ? "Wake-up time" : "Uyanma saati")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(Color.auraOnSurface)
+                        Text(isEnglish ? "Used for your daily pick" : "Günlük önerin için kullanılır")
+                            .font(.caption)
+                            .foregroundStyle(Color.auraTextSecondary)
+                    }
+                    Spacer()
+                    DatePicker("", selection: $viewModel.wakeUpTime, displayedComponents: .hourAndMinute)
+                        .labelsHidden()
+                        .tint(.auraPrimary)
+                }
             }
-            
-            content()
         }
-        .padding(16)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 4)
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color.auraOnSurface.opacity(0.07), lineWidth: 1)
-        )
     }
-    
-    // MARK: - Platform Icon
+
+    private var genreSection: some View {
+        AuraSectionCard(
+            title: isEnglish ? "Favorite genres" : "Sevdiğin türler",
+            subtitle: isEnglish
+                ? "Selected \(viewModel.selectedGenres.count) of \(Profile.maxGenreSelection)"
+                : "\(Profile.maxGenreSelection) türden \(viewModel.selectedGenres.count) seçildi",
+            icon: "music.note.list",
+            tint: .auraSuccess
+        ) {
+            LazyVGrid(columns: genreColumns, spacing: 8) {
+                ForEach(viewModel.availableGenres, id: \.self) { genre in
+                    let isSelected = viewModel.selectedGenres.contains(genre)
+                    Button {
+                        withAnimation(.easeOut(duration: 0.16)) {
+                            viewModel.toggleGenre(genre)
+                        }
+                    } label: {
+                        HStack(spacing: 5) {
+                            if isSelected {
+                                Image(systemName: "checkmark")
+                                    .font(.caption2.weight(.bold))
+                            }
+                            Text(LocalizedStringKey(genre))
+                                .font(.caption.weight(.semibold))
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.8)
+                        }
+                        .foregroundStyle(isSelected ? Color.white : Color.auraOnSurface)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .padding(.horizontal, 7)
+                        .background(isSelected ? Color.auraSuccess : Color.auraSurface)
+                        .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous)
+                                .stroke(isSelected ? Color.auraSuccess : Color.auraOutline, lineWidth: 1)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                }
+            }
+        }
+    }
+
+    private var platformSection: some View {
+        AuraSectionCard(
+            title: isEnglish ? "Listening service" : "Müzik uygulaması",
+            subtitle: isEnglish ? "Songs open directly in this app" : "Şarkılar doğrudan bu uygulamada açılır",
+            icon: "headphones",
+            tint: .auraSecondary
+        ) {
+            VStack(spacing: 8) {
+                ForEach(viewModel.availablePlatforms, id: \.self) { platform in
+                    let isSelected = viewModel.selectedPlatform == platform
+                    Button {
+                        viewModel.selectedPlatform = platform
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: platformIcon(platform))
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(isSelected ? Color.white : Color.auraTextSecondary)
+                                .frame(width: 36, height: 36)
+                                .background(isSelected ? Color.auraDeepAccent : Color.auraSurface)
+                                .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
+
+                            Text(platform)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Color.auraOnSurface)
+                            Spacer()
+                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                .font(.system(size: 20))
+                                .foregroundStyle(isSelected ? Color.auraPrimary : Color.auraOutline)
+                        }
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 56)
+                        .background(isSelected ? Color.auraPrimary.opacity(0.07) : Color.auraSurface)
+                        .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous)
+                                .stroke(isSelected ? Color.auraPrimary.opacity(0.35) : Color.auraOutline, lineWidth: 1)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                }
+            }
+        }
+    }
+
+    private func selectionButton(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(isSelected ? Color.white : Color.auraOnSurface)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(isSelected ? Color.auraTertiary : Color.auraSurface)
+                .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous)
+                        .stroke(isSelected ? Color.auraTertiary : Color.auraOutline, lineWidth: 1)
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private var completionBar: some View {
+        VStack(spacing: 0) {
+            Divider()
+            Button {
+                isNameFocused = false
+                Task { await viewModel.completeOnboarding() }
+            } label: {
+                HStack(spacing: 9) {
+                    if viewModel.isSaving {
+                        ProgressView()
+                            .tint(.white)
+                    } else {
+                        Image(systemName: "sparkles")
+                    }
+                    Text(isEnglish ? "Complete setup" : "Kurulumu tamamla")
+                }
+            }
+            .buttonStyle(M3FilledButton())
+            .disabled(!canComplete)
+            .padding(.horizontal, AuraMetrics.pagePadding)
+            .padding(.vertical, 12)
+            .auraContentColumn()
+        }
+        .background(.ultraThinMaterial)
+    }
+
+    private func onboardingError(_ message: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+            Text(message)
+                .font(.footnote)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(Color.auraDanger)
+        .padding(14)
+        .background(Color.auraDanger.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous)
+                .stroke(Color.auraDanger.opacity(0.2), lineWidth: 1)
+        }
+    }
+
     private func platformIcon(_ platform: String) -> String {
         switch platform {
         case "Spotify": return "music.note"

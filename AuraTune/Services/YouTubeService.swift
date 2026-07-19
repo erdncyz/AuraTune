@@ -335,12 +335,12 @@ final class YouTubeService {
     private func dailyMessage(interfaceLanguage: String) -> String {
         interfaceLanguage == "en"
             ? "Fresh pick from YouTube Music search today."
-            : "Bugun senin icin YouTube Music tarafindan taze bir secim yaptim."
+            : "Bugün senin için YouTube Music'ten yeni bir seçim yaptım."
     }
 
     private func mixMessage(interfaceLanguage: String) -> String {
         interfaceLanguage == "en"
             ? "Built from YouTube Music with varied energy."
-            : "YouTube Music tarafindan cesitli bir Daily Mix hazirladim."
+            : "YouTube Music'ten çeşitli bir Daily Mix hazırladım."
     }
 }

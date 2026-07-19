@@ -4,41 +4,57 @@ import UserNotifications
 struct MainTabView: View {
     @EnvironmentObject var languageManager: LanguageManager
     @EnvironmentObject var remindersManager: RemindersManager
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var notificationManager = NotificationManager.shared
     @State private var showNotificationBanner = false
+    @State private var selectedTab = 0
+    @State private var notificationAuthorizationStatus: UNAuthorizationStatus = .notDetermined
 
     private var isEnglish: Bool { languageManager.currentLanguage == "en" }
+
+    private var tabItems: [AuraTabBarItem] {
+        [
+            AuraTabBarItem(id: 0, title: isEnglish ? "Home" : "Ana Sayfa", icon: "house", selectedIcon: "house.fill"),
+            AuraTabBarItem(id: 1, title: isEnglish ? "Discover" : "Keşfet", icon: "safari", selectedIcon: "safari.fill"),
+            AuraTabBarItem(id: 2, title: isEnglish ? "Reminders" : "Hatırlatıcı", icon: "bell", selectedIcon: "bell.fill"),
+            AuraTabBarItem(id: 3, title: isEnglish ? "Library" : "Kütüphane", icon: "heart", selectedIcon: "heart.fill"),
+            AuraTabBarItem(id: 4, title: isEnglish ? "Profile" : "Profil", icon: "person", selectedIcon: "person.fill")
+        ]
+    }
 
     var body: some View {
         ZStack {
             Color.auraSurface.ignoresSafeArea()
-            TabView {
+            TabView(selection: $selectedTab) {
                 HomeView()
-                    .tabItem {
-                        Label(LocalizedStringKey("Anasayfa"), systemImage: "house.fill")
-                    }
+                    .tag(0)
 
                 DiscoverView()
-                    .tabItem {
-                        Label(LocalizedStringKey("Keşfet"), systemImage: "safari.fill")
-                    }
+                    .tag(1)
 
                 RemindersView()
-                    .tabItem {
-                        Label(languageManager.currentLanguage == "en" ? "Reminders" : "Hatırlatıcı", systemImage: "staroflife.circle.fill")
-                    }
+                    .tag(2)
 
                 FavoritesView()
-                    .tabItem {
-                        Label(languageManager.currentLanguage == "en" ? "Library" : "Kütüphanem", systemImage: "heart.fill")
-                    }
+                    .tag(3)
 
                 SettingsView()
-                    .tabItem {
-                        Label(LocalizedStringKey("Profil"), systemImage: "person.circle.fill")
-                    }
+                    .tag(4)
             }
-            .tint(.auraPrimary)
+            .toolbar(.hidden, for: .tabBar)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                VStack(spacing: 8) {
+                    if let prompt = notificationManager.foregroundPrompt,
+                       prompt.origin == .foregroundDelivery {
+                        foregroundPromptCard(prompt)
+                            .padding(.horizontal, 14)
+                            .auraContentColumn(maxWidth: 600)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+
+                    AuraTabBar(selection: $selectedTab, items: tabItems)
+                }
+            }
 
             // Notification permission banner — visible on all tabs
             if showNotificationBanner {
@@ -46,43 +62,41 @@ struct MainTabView: View {
                     notificationPermissionBanner
                         .padding(.horizontal, 12)
                         .padding(.top, 6)
+                        .auraContentColumn()
                     Spacer()
                 }
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .zIndex(999)
             }
 
-            if let prompt = notificationManager.foregroundPrompt {
-                if prompt.origin == .notificationTap {
-                    ZStack {
-                        Color.black.opacity(0.35)
-                            .ignoresSafeArea()
-                        foregroundPromptCard(prompt)
-                            .padding(.horizontal, 18)
-                    }
-                    .transition(.opacity)
-                    .zIndex(1001)
-                } else {
-                    VStack {
-                        Spacer()
-                        foregroundPromptCard(prompt)
-                            .padding(.horizontal, 14)
-                            .padding(.bottom, 12)
-                    }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                    .zIndex(1000)
+            if let prompt = notificationManager.foregroundPrompt,
+               prompt.origin == .notificationTap {
+                ZStack {
+                    Color.black.opacity(0.35)
+                        .ignoresSafeArea()
+                    foregroundPromptCard(prompt)
+                        .padding(.horizontal, 18)
+                        .auraContentColumn(maxWidth: 600)
                 }
+                .transition(.opacity)
+                .zIndex(1001)
             }
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: notificationManager.foregroundPrompt?.id)
         .onAppear {
             checkNotificationPermission()
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                checkNotificationPermission()
+            }
+        }
     }
 
     private func checkNotificationPermission() {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             DispatchQueue.main.async {
+                notificationAuthorizationStatus = settings.authorizationStatus
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                     showNotificationBanner = (settings.authorizationStatus == .denied || settings.authorizationStatus == .notDetermined)
                 }
@@ -91,43 +105,40 @@ struct MainTabView: View {
     }
 
     private var notificationPermissionBanner: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(Color.white.opacity(0.2))
-                    .frame(width: 42, height: 42)
-                Image(systemName: "bell.badge.slash.fill")
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(.white)
-            }
+        HStack(spacing: 12) {
+            AuraIconBadge(
+                icon: notificationAuthorizationStatus == .denied ? "bell.slash.fill" : "bell.badge.fill",
+                tint: notificationAuthorizationStatus == .denied ? .auraDanger : .auraPrimary
+            )
 
             VStack(alignment: .leading, spacing: 3) {
-                Text(isEnglish ? "Notifications are off" : "Bildirimler kapalı")
-                    .font(.subheadline.weight(.bold))
-                    .foregroundColor(.white)
-                Text(isEnglish
-                     ? "Turn on to receive your daily song pick!"
-                     : "Günlük şarkı önerini almak için bildirimleri aç!")
+                Text(notificationAuthorizationStatus == .denied
+                    ? (isEnglish ? "Notifications are off" : "Bildirimler kapalı")
+                    : (isEnglish ? "Stay in rhythm" : "Ritmini kaçırma"))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.auraOnSurface)
+                Text(notificationAuthorizationStatus == .denied
+                    ? (isEnglish ? "Enable alerts in Settings." : "Uyarıları Ayarlar'dan etkinleştir.")
+                    : (isEnglish ? "Allow daily song and reminder alerts." : "Günlük şarkı ve hatırlatıcı uyarılarına izin ver."))
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(.auraTextSecondary)
+                    .lineLimit(2)
             }
 
             Spacer()
 
-            Button(action: {
-                if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
-                    UIApplication.shared.open(url)
-                }
-            }) {
-                Text(isEnglish ? "Enable" : "Aç")
-                    .font(.subheadline.weight(.heavy))
+            Button(action: handleNotificationPermissionAction) {
+                Text(notificationAuthorizationStatus == .denied
+                    ? (isEnglish ? "Settings" : "Ayarlar")
+                    : (isEnglish ? "Allow" : "İzin ver"))
+                    .font(.caption.weight(.bold))
                     .foregroundColor(.white)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color.white.opacity(0.25))
-                    .clipShape(Capsule())
-                    .overlay(Capsule().stroke(Color.white.opacity(0.4), lineWidth: 1))
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: AuraMetrics.minimumTapTarget)
+                    .background(Color.auraPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
             }
+            .buttonStyle(.plain)
 
             Button(action: {
                 withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
@@ -136,71 +147,91 @@ struct MainTabView: View {
             }) {
                 Image(systemName: "xmark")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(.auraTextSecondary)
+                    .frame(width: AuraMetrics.minimumTapTarget, height: AuraMetrics.minimumTapTarget)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(isEnglish ? "Dismiss" : "Kapat")
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 14)
-        .background(
-            LinearGradient(
-                colors: [Color(hex: "C0392B"), Color(hex: "E74C3C"), Color(hex: "F39C12")],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .shadow(color: Color(hex: "E74C3C").opacity(0.45), radius: 12, x: 0, y: 6)
+        .padding(12)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous)
+                .stroke(Color.auraOutline, lineWidth: 1)
+        }
+        .shadow(color: Color.auraDeepAccent.opacity(0.12), radius: 12, x: 0, y: 5)
+    }
+
+    private func handleNotificationPermissionAction() {
+        if notificationAuthorizationStatus == .notDetermined {
+            notificationManager.requestAuthorization { granted in
+                withAnimation(.easeOut(duration: 0.2)) {
+                    showNotificationBanner = !granted
+                }
+                checkNotificationPermission()
+            }
+            return
+        }
+
+        if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
+            UIApplication.shared.open(url)
+        }
     }
 
     private func foregroundPromptCard(_ prompt: NotificationManager.ForegroundPrompt) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Image(systemName: prompt.type == .water ? "drop.fill" : "pills.fill")
-                    .foregroundColor(.white)
+                AuraIconBadge(
+                    icon: prompt.type == .water ? "drop.fill" : "pills.fill",
+                    tint: prompt.type == .water ? .auraTertiary : .auraPrimary
+                )
                 Text(prompt.title)
                     .font(.subheadline.weight(.bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.auraOnSurface)
                 Spacer()
                 Button(action: {
                     notificationManager.dismissForegroundPrompt()
                 }) {
                     Image(systemName: "xmark")
                         .font(.caption.bold())
-                        .foregroundColor(.white.opacity(0.9))
+                        .foregroundColor(.auraTextSecondary)
+                        .frame(width: AuraMetrics.minimumTapTarget, height: AuraMetrics.minimumTapTarget)
                 }
+                .buttonStyle(.plain)
             }
 
             Text(prompt.body)
                 .font(.caption)
-                .foregroundColor(.white.opacity(0.92))
-                .lineLimit(2)
+                .foregroundColor(.auraTextSecondary)
+                .lineLimit(3)
 
             HStack(spacing: 10) {
                 if prompt.type == .water {
                     quickActionButton(
-                        title: isEnglish ? "I Drank" : "Ictim",
-                        color: Color(hex: "1E824C")
+                        title: isEnglish ? "I Drank" : "İçtim",
+                        color: .auraSuccess
                     ) {
                         notificationManager.handleForegroundWaterAction(didDrink: true)
                     }
 
                     quickActionButton(
-                        title: isEnglish ? "Not Yet" : "Icmedim",
-                        color: Color(hex: "C0392B")
+                        title: isEnglish ? "Not Yet" : "İçmedim",
+                        color: .auraDanger
                     ) {
                         notificationManager.handleForegroundWaterAction(didDrink: false)
                     }
                 } else {
                     quickActionButton(
-                        title: isEnglish ? "I Took It" : "Aldim",
-                        color: Color(hex: "1E824C")
+                        title: isEnglish ? "I Took It" : "Aldım",
+                        color: .auraSuccess
                     ) {
                         notificationManager.handleForegroundMedicineAction(tookMedicine: true)
                     }
 
                     quickActionButton(
-                        title: isEnglish ? "Skip" : "Atladim",
-                        color: Color(hex: "C0392B")
+                        title: isEnglish ? "Skip" : "Atladım",
+                        color: .auraDanger
                     ) {
                         notificationManager.handleForegroundMedicineAction(tookMedicine: false)
                     }
@@ -208,15 +239,13 @@ struct MainTabView: View {
             }
         }
         .padding(14)
-        .background(
-            LinearGradient(
-                colors: [Color(hex: "273469"), Color(hex: "1F487E"), Color(hex: "376996")],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: .black.opacity(0.25), radius: 10, x: 0, y: 5)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous)
+                .stroke(Color.auraOutline, lineWidth: 1)
+        }
+        .shadow(color: Color.auraDeepAccent.opacity(0.18), radius: 14, x: 0, y: 6)
     }
 
     private func quickActionButton(title: String, color: Color, action: @escaping () -> Void) -> some View {
@@ -225,9 +254,10 @@ struct MainTabView: View {
                 .font(.caption.weight(.bold))
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
+                .frame(minHeight: AuraMetrics.minimumTapTarget)
                 .background(color)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
         }
+        .buttonStyle(.plain)
     }
 }

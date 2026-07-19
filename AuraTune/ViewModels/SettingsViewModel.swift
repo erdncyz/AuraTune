@@ -60,8 +60,10 @@ class SettingsViewModel: ObservableObject {
         }
     }
     
-    func saveSettings() async {
+    func saveSettings() async throws {
         isSaving = true
+        defer { isSaving = false }
+
         let updatedProfile = Profile(
             name: userName,
             wakeUpTime: wakeUpTime,
@@ -70,7 +72,7 @@ class SettingsViewModel: ObservableObject {
             songLanguage: selectedSongLanguage
         )
 
-        await FirebaseManager.shared.saveProfile(updatedProfile)
+        try await FirebaseManager.shared.saveProfile(updatedProfile)
 
         // Re-schedule the morning notification at the (possibly new) wake-up time.
         NotificationManager.shared.scheduleMorningNotification(
@@ -86,6 +88,5 @@ class SettingsViewModel: ObservableObject {
         originalPlatform = selectedPlatform
         originalSongLanguage = selectedSongLanguage
         hasChanges = false
-        isSaving = false
     }
 }

@@ -537,12 +537,12 @@ final class SpotifyService {
     private func dailyMessage(interfaceLanguage: String) -> String {
         interfaceLanguage == "en"
             ? "Fresh pick from Spotify's catalog for today."
-            : "Bugun senin icin Spotify katalogundan taze bir secim yaptim."
+            : "Bugün senin için Spotify kataloğundan yeni bir seçim yaptım."
     }
 
     private func mixMessage(interfaceLanguage: String) -> String {
         interfaceLanguage == "en"
             ? "Built from Spotify with a fresh vibe."
-            : "Spotify katalogundan cesitli bir Daily Mix hazirladim."
+            : "Spotify kataloğundan çeşitli bir Daily Mix hazırladım."
     }
 }

@@ -109,38 +109,38 @@
 "auth.error.network" = "İnternet bağlantısı yok.";
 "auth.error.reauthRequired" = "Bu işlem için tekrar giriş yapman gerekiyor.";
 
-"water.rewards.title" = "Su Odulleri";
-"water.rewards.coinUnit" = "coin";
-"water.rewards.action.drank" = "Ictim";
-"water.rewards.action.skipped" = "Icmedim";
-"water.rewards.dailyGoalBonus" = "Gunluk hedef tamamlama bonusu: +10 coin";
-"water.rewards.currentStreakFormat" = "Mevcut seri: %d gun";
-"water.rewards.bestStreakFormat" = "En iyi: %d";
-"water.rewards.toNextLevelFormat" = "Sonraki seviye icin %d coin";
-"water.rewards.streakBonus" = "7 gunluk seri bonusu: +20 coin";
+"water.rewards.title" = "Su Ödülleri";
+"water.rewards.coinUnit" = "jeton";
+"water.rewards.action.drank" = "İçtim";
+"water.rewards.action.skipped" = "İçmedim";
+"water.rewards.dailyGoalBonus" = "Günlük hedef bonusu: +10 jeton";
+"water.rewards.currentStreakFormat" = "Mevcut seri: %d gün";
+"water.rewards.bestStreakFormat" = "En iyi seri: %d gün";
+"water.rewards.toNextLevelFormat" = "Sonraki seviye için %d jeton";
+"water.rewards.streakBonus" = "7 günlük seri bonusu: +20 jeton";
 
 "water.level.bronze" = "Bronz";
-"water.level.silver" = "Gumus";
-"water.level.gold" = "Altin";
+"water.level.silver" = "Gümüş";
+"water.level.gold" = "Altın";
 "water.level.diamond" = "Elmas";
 
-"water.shop.title" = "Coin Magazasi";
-"water.shop.owned" = "Sende";
-"water.shop.purchasedFormat" = "Satin alindi: %@";
-"water.shop.effect.ocean" = "Aktif: Okyanus gorunumu acik";
-"water.shop.effect.zen" = "Aktif: Profil zen rozeti acik";
-"water.shop.effect.ai" = "Aktif: Genisletilmis AI mesaj havuzu";
+"water.shop.title" = "Jeton Mağazası";
+"water.shop.owned" = "Alındı";
+"water.shop.purchasedFormat" = "Satın alındı: %@";
+"water.shop.effect.ocean" = "Aktif: Okyanus görünümü açık";
+"water.shop.effect.zen" = "Aktif: Profil zen rozeti açık";
+"water.shop.effect.ai" = "Aktif: Genişletilmiş AI mesaj havuzu";
 "water.shop.effect.zenBadge" = "Zen Rozeti Aktif";
 
-"water.shop.item.ocean.title" = "Okyanus Tema";
-"water.shop.item.ocean.subtitle" = "Sakin mavi stil kilidini ac";
+"water.shop.item.ocean.title" = "Okyanus Teması";
+"water.shop.item.ocean.subtitle" = "Sakin mavi görünümü etkinleştir";
 "water.shop.item.zen.title" = "Zen Avatar";
-"water.shop.item.zen.subtitle" = "Profil rozetini gelistir";
+"water.shop.item.zen.subtitle" = "Profil rozetini geliştir";
 "water.shop.item.ai.title" = "AI Motivasyon Paketi";
-"water.shop.item.ai.subtitle" = "Ekstra motivasyon mesajlari";
+"water.shop.item.ai.subtitle" = "Ek motivasyon mesajları";
 
-"medicine.rewards.title" = "Ilac Odulleri";
-"medicine.rewards.coinUnit" = "coin";
-"medicine.rewards.action.took" = "Aldim";
-"medicine.rewards.action.skipped" = "Atladim";
-"medicine.rewards.caption" = "Bildirim aksiyonlarindan ilac coin kazanimi";
+"medicine.rewards.title" = "İlaç Ödülleri";
+"medicine.rewards.coinUnit" = "jeton";
+"medicine.rewards.action.took" = "Aldım";
+"medicine.rewards.action.skipped" = "Atladım";
+"medicine.rewards.caption" = "Bildirim eylemleriyle ilaç jetonu kazan";

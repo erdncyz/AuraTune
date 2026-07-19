@@ -8,583 +8,509 @@ struct SettingsView: View {
     @EnvironmentObject var favoritesManager: FavoritesManager
     @EnvironmentObject var historyManager: HistoryManager
     @StateObject private var viewModel = SettingsViewModel()
-    @Environment(\.dismiss) var dismiss
-    @State private var showSavedBadge = false
+    @FocusState private var isNameFocused: Bool
+    @State private var showSavedToast = false
     @State private var showAbout = false
-    @State private var isLibrarySheetPresented = false
     @State private var authActionError: String?
-    @State private var showDeleteConfirm = false
+    @State private var showDeleteConfirmation = false
     @State private var isDeletingAccount = false
 
-    var isEnglish: Bool { languageManager.currentLanguage == "en" }
+    private var isEnglish: Bool { languageManager.currentLanguage == "en" }
+    private let genreColumns = [GridItem(.adaptive(minimum: 92), spacing: 8)]
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .top) {
-                Color.auraSurface.ignoresSafeArea()
-                LinearGradient(
-                    colors: [Color(hex: "994A1A"), Color.auraPrimary, Color(hex: "F4845F").opacity(0.8)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
+            AuraFixedHeaderLayout {
+                AuraPageHeader(
+                    eyebrow: isEnglish ? "Profile & preferences" : "Profil ve tercihler",
+                    title: viewModel.userName.isEmpty ? "AuraTune" : viewModel.userName,
+                    subtitle: firebaseManager.currentUser?.email,
+                    icon: remindersManager.hasUnlockedZenAvatar ? "sparkles" : "person.fill",
+                    accent: remindersManager.hasUnlockedZenAvatar ? .auraSecondary : .auraPrimary
                 )
-                    .frame(height: 310)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    .ignoresSafeArea(edges: .top)
+            } content: {
+                ScrollView(showsIndicators: false) {
+                    VStack(spacing: AuraMetrics.sectionSpacing) {
+                        profileSnapshot
+                        preferenceSection
+                        personalSection
+                        genreSection
+                        platformSection
+                        aboutRow
+                        accountSection
 
-                VStack(spacing: -8) {
-                    heroHeader
-                    
-                    ScrollView(showsIndicators: false) {
-                        VStack(spacing: 16) {
-                            // Language
-                            sectionCard(icon: "globe", iconColor: Color(hex: "7C6AF7"),
-                                        title: isEnglish ? "Language" : "Dil") {
-                                HStack {
-                                    Text(isEnglish ? "App Language" : "Uygulama Dili")
-                                        .font(.subheadline)
-                                        .foregroundColor(.auraOnSurface.opacity(0.7))
-                                    Spacer()
-                                    Picker("", selection: $languageManager.currentLanguage) {
-                                        Text("TR").tag("tr")
-                                        Text("EN").tag("en")
-                                    }
-                                    .pickerStyle(.segmented)
-                                    .frame(width: 110)
-                                }
-                            }
-                            .padding(.top, 8)
-
-                            sectionCard(icon: "music.mic", iconColor: Color(hex: "5AC8FA"),
-                                        title: isEnglish ? "Song Language" : "Şarkı Dili") {
-                                VStack(alignment: .leading, spacing: 12) {
-                                    Text(isEnglish
-                                         ? "Choose the language of recommended songs"
-                                         : "Önerilen şarkıların dilini seç")
-                                        .font(.subheadline)
-                                        .foregroundColor(.auraOnSurface.opacity(0.7))
-
-                                    HStack(spacing: 10) {
-                                        ForEach(SongLanguagePreference.allCases) { option in
-                                            let isSelected = viewModel.selectedSongLanguage == option
-                                            Button(action: { viewModel.selectedSongLanguage = option }) {
-                                                Text(option.title(isEnglish: isEnglish))
-                                                    .font(.caption.weight(.semibold))
-                                                    .foregroundColor(isSelected ? .white : .auraOnSurface)
-                                                    .frame(maxWidth: .infinity)
-                                                    .padding(.vertical, 12)
-                                                    .background(isSelected ? Color.auraPrimary : Color.auraSurface)
-                                                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                                    .overlay(
-                                                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                                            .stroke(isSelected ? Color.auraPrimary : Color.auraOnSurface.opacity(0.1), lineWidth: 1)
-                                                    )
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            // Name
-                            sectionCard(icon: "person.fill", iconColor: Color(hex: "F4845F"),
-                                        title: isEnglish ? "Your Name" : "Adın") {
-                                TextField(isEnglish ? "e.g. Alex" : "Örn: Aysu",
-                                          text: $viewModel.userName)
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 12)
-                                    .background(Color.auraSurface)
-                                    .cornerRadius(12)
-                                    .font(.body)
-                                    .foregroundColor(.auraOnSurface)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(Color.auraOnSurface.opacity(0.12), lineWidth: 1)
-                                    )
-                            }
-
-                            // Wake up time
-                            sectionCard(icon: "alarm.fill", iconColor: Color(hex: "FF9E66"),
-                                        title: isEnglish ? "Wake Up Time" : "Uyanma Saatin") {
-                                HStack {
-                                    Text(isEnglish ? "Wake Up Time" : "Uyanma Saati")
-                                        .font(.subheadline)
-                                        .foregroundColor(.auraOnSurface.opacity(0.7))
-                                    Spacer()
-                                    DatePicker("", selection: $viewModel.wakeUpTime,
-                                               displayedComponents: .hourAndMinute)
-                                        .datePickerStyle(.compact)
-                                        .labelsHidden()
-                                        .tint(.auraPrimary)
-                                }
-                            }
-
-                            // Genres
-                            sectionCard(icon: "music.note.list", iconColor: Color(hex: "34C759"),
-                                        title: isEnglish
-                                            ? "Favorite Genres (Max \(Profile.maxGenreSelection))"
-                                            : "Sevdiğin Türler (Maks \(Profile.maxGenreSelection))") {
-                                ScrollView(.horizontal, showsIndicators: true) {
-                                    LazyHGrid(
-                                        rows: [GridItem(.fixed(36)), GridItem(.fixed(36))],
-                                        spacing: 10
-                                    ) {
-                                        ForEach(viewModel.availableGenres, id: \.self) { genre in
-                                            let isSelected = viewModel.selectedGenres.contains(genre)
-                                            Button(action: {
-                                                withAnimation(.spring(response: 0.3)) {
-                                                    viewModel.toggleGenre(genre)
-                                                }
-                                            }) {
-                                                Text(LocalizedStringKey(genre))
-                                                    .font(.caption.weight(.semibold))
-                                                    .padding(.vertical, 7)
-                                                    .padding(.horizontal, 14)
-                                                    .background(isSelected
-                                                        ? Color.auraPrimary
-                                                        : Color.auraSurface)
-                                                    .foregroundColor(isSelected
-                                                        ? .white
-                                                        : Color.auraOnSurface.opacity(0.8))
-                                                    .clipShape(Capsule())
-                                                    .overlay(
-                                                        Capsule()
-                                                            .stroke(isSelected
-                                                                ? Color.auraPrimary
-                                                                : Color.auraOnSurface.opacity(0.2),
-                                                                    lineWidth: 1)
-                                                    )
-                                                    .scaleEffect(isSelected ? 1.04 : 1.0)
-                                            }
-                                        }
-                                    }
-                                    .padding(.bottom, 10)
-                                    .padding(.horizontal, 2)
-                                }
-                                .frame(height: 96)
-                            }
-
-                            // Platform
-                            sectionCard(icon: "headphones", iconColor: Color(hex: "FF2D55"),
-                                        title: isEnglish ? "Music Platform" : "Müzik Uygulaması") {
-                                VStack(spacing: 10) {
-                                    ForEach(viewModel.availablePlatforms, id: \.self) { platform in
-                                        let isSelected = viewModel.selectedPlatform == platform
-                                        Button(action: { viewModel.selectedPlatform = platform }) {
-                                            HStack(spacing: 12) {
-                                                Image(systemName: platformIcon(platform))
-                                                    .font(.system(size: 18, weight: .semibold))
-                                                    .foregroundColor(isSelected ? .white : .auraOnSurface.opacity(0.6))
-                                                    .frame(width: 32, height: 32)
-                                                    .background(isSelected ? Color.auraPrimary : Color.auraSurface)
-                                                    .clipShape(RoundedRectangle(cornerRadius: 8))
-
-                                                Text(platform)
-                                                    .font(.subheadline.weight(.medium))
-                                                    .foregroundColor(.auraOnSurface)
-                                                Spacer()
-                                                if isSelected {
-                                                    Image(systemName: "checkmark.circle.fill")
-                                                        .foregroundColor(.auraPrimary)
-                                                        .font(.system(size: 20))
-                                                }
-                                            }
-                                            .padding(.horizontal, 14)
-                                            .padding(.vertical, 12)
-                                            .background(isSelected
-                                                ? Color.auraPrimary.opacity(0.08)
-                                                : Color.auraSurface)
-                                            .cornerRadius(12)
-                                            .overlay(
-                                                RoundedRectangle(cornerRadius: 12)
-                                                    .stroke(isSelected
-                                                        ? Color.auraPrimary.opacity(0.4)
-                                                        : Color.auraOnSurface.opacity(0.1),
-                                                            lineWidth: 1)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-
-                            sectionCard(icon: "person.crop.circle", iconColor: Color(hex: "7C6AF7"),
-                                        title: isEnglish ? "Account" : "Hesap") {
-                                VStack(alignment: .leading, spacing: 12) {
-                                    Text(firebaseManager.currentUser?.email ?? (isEnglish ? "Signed in" : "Giriş yapıldı"))
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundColor(.auraOnSurface)
-
-                                    Button(action: {
-                                        do {
-                                            try firebaseManager.signOut()
-                                        } catch {
-                                            authActionError = error.localizedDescription
-                                        }
-                                    }) {
-                                        HStack(spacing: 8) {
-                                            Image(systemName: "rectangle.portrait.and.arrow.right")
-                                            Text(isEnglish ? "Log Out" : "Çıkış Yap")
-                                                .font(.subheadline.weight(.bold))
-                                        }
-                                        .foregroundColor(.white)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 12)
-                                        .background(Color(hex: "C0392B"))
-                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                    }
-
-                                    Button(action: {
-                                        showDeleteConfirm = true
-                                    }) {
-                                        HStack(spacing: 8) {
-                                            if isDeletingAccount {
-                                                ProgressView()
-                                                    .tint(.white)
-                                            } else {
-                                                Image(systemName: "trash.fill")
-                                            }
-                                            Text(isEnglish ? "Delete Account" : "Hesabı Sil")
-                                                .font(.subheadline.weight(.bold))
-                                        }
-                                        .foregroundColor(.white)
-                                        .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 12)
-                                        .background(Color.black.opacity(0.65))
-                                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                                    }
-                                    .disabled(isDeletingAccount)
-                                }
-                            }
-
-                            if let authActionError {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "exclamationmark.triangle.fill")
-                                    Text(authActionError)
-                                        .font(.footnote.weight(.semibold))
-                                }
-                                .foregroundColor(.white)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 10)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Color(hex: "C0392B"))
-                                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            }
-
-                            // About
-                            Button(action: { showAbout = true }) {
-                                HStack(spacing: 14) {
-                                    ZStack {
-                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                            .fill(Color(hex: "5AC8FA").opacity(0.15))
-                                            .frame(width: 32, height: 32)
-                                        Image(systemName: "info.circle.fill")
-                                            .font(.system(size: 15, weight: .semibold))
-                                            .foregroundColor(Color(hex: "5AC8FA"))
-                                    }
-                                    Text(isEnglish ? "About AuraTune" : "AuraTune Hakkında")
-                                        .font(.headline)
-                                        .foregroundColor(.auraOnSurface)
-                                    Spacer()
-                                    Image(systemName: "chevron.right")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundColor(.auraOnSurface.opacity(0.35))
-                                }
-                                .padding(16)
-                                .background(Color.white)
-                                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-                                .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 4)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                        .stroke(Color.auraOnSurface.opacity(0.07), lineWidth: 1)
-                                )
-                            }
-
-                            // Save Button removed — now a floating bar below
-                            Color.clear.frame(height: 100)
+                        if let authActionError {
+                            errorPanel(authActionError)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 0)
                     }
+                    .padding(.horizontal, AuraMetrics.pagePadding)
+                    .padding(.top, 22)
+                    .padding(.bottom, 28)
+                    .auraContentColumn()
                 }
-
-                // Floating Save Bar
+                .scrollDismissesKeyboard(.interactively)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
                 if viewModel.hasChanges {
-                    VStack {
-                        Spacer()
-                        Button(action: {
-                            Task {
-                                await viewModel.saveSettings()
-                                withAnimation { showSavedBadge = true }
-                                try? await Task.sleep(nanoseconds: 2_000_000_000)
-                                withAnimation { showSavedBadge = false }
-                            }
-                        }) {
-                            HStack(spacing: 10) {
-                                if viewModel.isSaving {
-                                    ProgressView().tint(.white)
-                                    Text(isEnglish ? "Saving..." : "Kaydediliyor...")
-                                        .font(.headline)
-                                        .foregroundColor(.white)
-                                } else if showSavedBadge {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.headline)
-                                    Text(isEnglish ? "Saved!" : "Kaydedildi!")
-                                        .font(.headline)
-                                } else {
-                                    Image(systemName: "square.and.arrow.down.fill")
-                                        .font(.headline)
-                                    Text(isEnglish ? "Save Changes" : "Değişiklikleri Kaydet")
-                                        .font(.headline)
-                                }
-                            }
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 16)
-                            .background(
-                                LinearGradient(
-                                    colors: [Color.auraPrimary, Color(hex: "F4845F")],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .cornerRadius(18)
-                            .shadow(color: Color.auraPrimary.opacity(0.4), radius: 16, x: 0, y: 8)
-                        }
-                        .disabled(viewModel.userName.trimmingCharacters(in: .whitespaces).isEmpty || viewModel.isSaving)
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 24)
-                    }
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    saveBar
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+            }
+            .overlay(alignment: .top) {
+                if showSavedToast {
+                    savedToast
+                        .padding(.horizontal, AuraMetrics.pagePadding)
+                        .padding(.top, 8)
+                        .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
             .navigationBarHidden(true)
-            .animation(.spring(response: 0.4, dampingFraction: 0.8), value: viewModel.hasChanges)
-            .onChange(of: viewModel.userName) { _ in viewModel.checkChanges() }
-            .onChange(of: viewModel.wakeUpTime) { _ in viewModel.checkChanges() }
-            .onChange(of: viewModel.selectedGenres) { _ in viewModel.checkChanges() }
-            .onChange(of: viewModel.selectedPlatform) { _ in viewModel.checkChanges() }
-            .onChange(of: viewModel.selectedSongLanguage) { _ in viewModel.checkChanges() }
+            .animation(.easeOut(duration: 0.22), value: viewModel.hasChanges)
+            .animation(.easeOut(duration: 0.22), value: showSavedToast)
+            .onChange(of: viewModel.userName) { _, _ in viewModel.checkChanges() }
+            .onChange(of: viewModel.wakeUpTime) { _, _ in viewModel.checkChanges() }
+            .onChange(of: viewModel.selectedGenres) { _, _ in viewModel.checkChanges() }
+            .onChange(of: viewModel.selectedPlatform) { _, _ in viewModel.checkChanges() }
+            .onChange(of: viewModel.selectedSongLanguage) { _, _ in viewModel.checkChanges() }
             .sheet(isPresented: $showAbout) {
                 AboutView()
-            }
-            .sheet(isPresented: $isLibrarySheetPresented) {
-                FavoritesView()
-                    .presentationDragIndicator(.visible)
             }
             .onAppear {
                 if let profile = firebaseManager.userProfile {
                     viewModel.loadProfile(profile)
                 }
             }
-            .alert(isEnglish ? "Delete Account" : "Hesabı Sil", isPresented: $showDeleteConfirm) {
+            .alert(isEnglish ? "Delete account?" : "Hesap silinsin mi?", isPresented: $showDeleteConfirmation) {
                 Button(isEnglish ? "Cancel" : "Vazgeç", role: .cancel) {}
                 Button(isEnglish ? "Delete" : "Sil", role: .destructive) {
-                    Task {
-                        isDeletingAccount = true
-                        do {
-                            try await firebaseManager.deleteCurrentAccount()
-                        } catch {
-                            authActionError = error.localizedDescription
-                        }
-                        isDeletingAccount = false
-                    }
+                    deleteAccount()
                 }
             } message: {
                 Text(isEnglish
-                     ? "Your profile and account will be permanently deleted."
-                     : "Profilin ve hesabın kalıcı olarak silinecek.")
+                    ? "Your profile and account will be permanently deleted."
+                    : "Profilin ve hesabın kalıcı olarak silinecek.")
             }
         }
         .preferredColorScheme(.light)
     }
 
-    // MARK: - Hero Header
-    private var heroHeader: some View {
-        ZStack(alignment: .bottomLeading) {
-            // Decorative circles
-            Circle()
-                .fill(Color.white.opacity(0.06))
-                .frame(width: 200, height: 200)
-                .offset(x: 200, y: -20)
-            Circle()
-                .fill(Color.white.opacity(0.05))
-                .frame(width: 140, height: 140)
-                .offset(x: 240, y: 40)
-            Circle()
-                .fill(Color.white.opacity(0.04))
-                .frame(width: 80, height: 80)
-                .offset(x: -20, y: -60)
+    private var profileSnapshot: some View {
+        HStack(spacing: 0) {
+            snapshotItem(
+                value: "\(viewModel.selectedGenres.count)",
+                label: isEnglish ? "Genres" : "Tür",
+                icon: "music.note.list",
+                tint: .auraSuccess
+            )
+            snapshotDivider
+            snapshotItem(
+                value: "\(favoritesManager.favorites.count)",
+                label: isEnglish ? "Liked" : "Beğeni",
+                icon: "heart.fill",
+                tint: .auraPrimary
+            )
+            snapshotDivider
+            snapshotItem(
+                value: "\(historyManager.history.count)",
+                label: isEnglish ? "History" : "Geçmiş",
+                icon: "clock.arrow.circlepath",
+                tint: .auraTertiary
+            )
+        }
+        .padding(.vertical, 14)
+        .background(Color.auraSurfaceVariant)
+        .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous)
+                .stroke(Color.auraOutline, lineWidth: 1)
+        }
+    }
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text(isEnglish ? "Profile" : "Profil")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.85))
+    private var snapshotDivider: some View {
+        Rectangle()
+            .fill(Color.auraOutline)
+            .frame(width: 1, height: 38)
+    }
 
-                Text(viewModel.userName.isEmpty ? "AuraTune" : viewModel.userName)
-                    .font(.system(size: 34, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
+    private func snapshotItem(value: String, label: String, icon: String, tint: Color) -> some View {
+        VStack(spacing: 5) {
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(tint)
+                Text(value)
+                    .font(.subheadline.monospacedDigit().weight(.bold))
+                    .foregroundStyle(Color.auraOnSurface)
+            }
+            Text(label)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(Color.auraTextSecondary)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+    }
 
-                if remindersManager.hasUnlockedZenAvatar {
-                    HStack(spacing: 6) {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 11, weight: .bold))
-                        Text(LocalizedStringKey("water.shop.effect.zenBadge"))
-                            .font(.system(size: 11, weight: .bold))
+    private var preferenceSection: some View {
+        AuraSectionCard(
+            title: isEnglish ? "Language preferences" : "Dil tercihleri",
+            subtitle: isEnglish ? "For the interface and recommendations" : "Arayüz ve öneriler için",
+            icon: "globe",
+            tint: .auraTertiary
+        ) {
+            VStack(spacing: 16) {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(isEnglish ? "App language" : "Uygulama dili")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(Color.auraOnSurface)
+                        Text(isEnglish ? "Applies immediately" : "Anında uygulanır")
+                            .font(.caption2)
+                            .foregroundStyle(Color.auraTextSecondary)
                     }
-                    .foregroundColor(.white)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(Color(hex: "7B1FA2").opacity(0.85))
-                    .clipShape(Capsule())
+                    Spacer()
+                    Picker("", selection: $languageManager.currentLanguage) {
+                        Text("TR").tag("tr")
+                        Text("EN").tag("en")
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .frame(width: 116)
                 }
 
-                // Stat pills (non-tappable)
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack(spacing: 8) {
-                        statPill(
-                            icon: "clock.fill",
-                            color: Color(hex: "7C6AF7"),
-                            label: isEnglish ? "Wake Up" : "Uyanma",
-                            value: {
-                                let f = DateFormatter()
-                                f.timeStyle = .short
-                                return f.string(from: firebaseManager.userProfile?.wakeUpTime ?? Date())
-                            }()
-                        )
-                        statPill(
-                            icon: "music.note.list",
-                            color: Color(hex: "34C759"),
-                            label: isEnglish ? "Genres" : "Tür",
-                            value: "\(viewModel.selectedGenres.count)"
-                        )
-                        statPill(
-                            icon: "headphones",
-                            color: Color(hex: "F4845F"),
-                            label: isEnglish ? "Platform" : "Platform",
-                            value: {
-                                let p = viewModel.selectedPlatform
-                                if p == "Apple Music" { return "Apple" }
-                                if p == "YouTube Music" { return "YT Music" }
-                                return p.isEmpty ? "-" : p
-                            }()
-                        )
-                    }
+                Divider()
 
-                    // Row 2: Library (centered, tappable)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(isEnglish ? "Song language" : "Şarkı dili")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.auraTextSecondary)
+
                     HStack(spacing: 8) {
-                        Spacer()
-                        Button(action: { isLibrarySheetPresented = true }) {
-                            libraryPill(
-                                icon: "heart.fill",
-                                color: Color(hex: "FF2D55"),
-                                label: isEnglish ? "Likes" : "Beğendiklerim",
-                                value: "\(favoritesManager.favorites.count)"
-                            )
+                        ForEach(SongLanguagePreference.allCases) { option in
+                            selectionButton(
+                                title: option.title(isEnglish: isEnglish),
+                                isSelected: viewModel.selectedSongLanguage == option
+                            ) {
+                                viewModel.selectedSongLanguage = option
+                            }
                         }
-                        Button(action: { isLibrarySheetPresented = true }) {
-                            libraryPill(
-                                icon: "clock.arrow.circlepath",
-                                color: Color(hex: "5AC8FA"),
-                                label: isEnglish ? "History" : "Geçmiş Öneriler",
-                                value: "\(historyManager.history.count)"
-                            )
-                        }
-                        Spacer()
                     }
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 20)
         }
-        .frame(height: 310)
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private func statPill(icon: String, color: Color, label: String, value: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(color)
-            Text(value)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(.white)
-                .lineLimit(1)
-            Text(label)
-                .font(.system(size: 11, weight: .regular))
-                .foregroundColor(.white.opacity(0.75))
-                .lineLimit(1)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .background(Color.white.opacity(0.18))
-        .clipShape(Capsule())
-        .overlay(
-            Capsule()
-                .stroke(Color.white.opacity(0.25), lineWidth: 0.5)
-        )
-    }
-
-    private func libraryPill(icon: String, color: Color, label: String, value: String) -> some View {
-        HStack(spacing: 4) {
-            Image(systemName: icon)
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundColor(color)
-            Text(value)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(.white)
-                .lineLimit(1)
-            Text(label)
-                .font(.system(size: 11, weight: .regular))
-                .foregroundColor(.white.opacity(0.85))
-                .lineLimit(1)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundColor(.white.opacity(0.6))
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
-        .background(Color.white.opacity(0.25))
-        .clipShape(Capsule())
-        .overlay(
-            Capsule()
-                .stroke(Color.white.opacity(0.45), lineWidth: 1)
-        )
-    }
-
-    // MARK: - Section Card Builder
-    @ViewBuilder
-    private func sectionCard<Content: View>(
-        icon: String,
-        iconColor: Color,
-        title: String,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(iconColor.opacity(0.15))
-                        .frame(width: 32, height: 32)
-                    Image(systemName: icon)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(iconColor)
+    private var personalSection: some View {
+        AuraSectionCard(
+            title: isEnglish ? "Personal details" : "Kişisel bilgiler",
+            subtitle: isEnglish ? "Used to tailor your daily experience" : "Günlük deneyimini kişiselleştirmek için",
+            icon: "person.fill",
+            tint: .auraPrimary
+        ) {
+            VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text(isEnglish ? "Your name" : "Adın")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.auraTextSecondary)
+                    HStack(spacing: 10) {
+                        Image(systemName: "person")
+                            .foregroundStyle(isNameFocused ? Color.auraPrimary : Color.auraTextSecondary)
+                            .frame(width: 20)
+                        TextField(isEnglish ? "e.g. Alex" : "Örn: Aysu", text: $viewModel.userName)
+                            .focused($isNameFocused)
+                            .textContentType(.name)
+                            .textInputAutocapitalization(.words)
+                            .submitLabel(.done)
+                            .onSubmit { isNameFocused = false }
+                    }
+                    .auraField(isFocused: isNameFocused)
                 }
-                Text(title)
-                    .font(.headline)
-                    .foregroundColor(.auraOnSurface)
-            }
 
-            content()
+                Divider()
+
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(isEnglish ? "Wake-up time" : "Uyanma saati")
+                            .font(.subheadline.weight(.medium))
+                            .foregroundStyle(Color.auraOnSurface)
+                        Text(isEnglish ? "Daily recommendation time" : "Günlük öneri saati")
+                            .font(.caption)
+                            .foregroundStyle(Color.auraTextSecondary)
+                    }
+                    Spacer()
+                    DatePicker("", selection: $viewModel.wakeUpTime, displayedComponents: .hourAndMinute)
+                        .labelsHidden()
+                        .tint(.auraPrimary)
+                }
+            }
         }
-        .padding(16)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .shadow(color: .black.opacity(0.05), radius: 10, x: 0, y: 4)
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color.auraOnSurface.opacity(0.07), lineWidth: 1)
-        )
     }
 
-    // MARK: - Platform Icon
+    private var genreSection: some View {
+        AuraSectionCard(
+            title: isEnglish ? "Favorite genres" : "Sevdiğin türler",
+            subtitle: isEnglish
+                ? "Selected \(viewModel.selectedGenres.count) of \(Profile.maxGenreSelection)"
+                : "\(Profile.maxGenreSelection) türden \(viewModel.selectedGenres.count) seçildi",
+            icon: "music.note.list",
+            tint: .auraSuccess
+        ) {
+            LazyVGrid(columns: genreColumns, spacing: 8) {
+                ForEach(viewModel.availableGenres, id: \.self) { genre in
+                    let isSelected = viewModel.selectedGenres.contains(genre)
+                    Button {
+                        withAnimation(.easeOut(duration: 0.16)) {
+                            viewModel.toggleGenre(genre)
+                            viewModel.checkChanges()
+                        }
+                    } label: {
+                        HStack(spacing: 5) {
+                            if isSelected {
+                                Image(systemName: "checkmark")
+                                    .font(.caption2.weight(.bold))
+                            }
+                            Text(LocalizedStringKey(genre))
+                                .font(.caption.weight(.semibold))
+                                .lineLimit(2)
+                                .minimumScaleFactor(0.8)
+                        }
+                        .foregroundStyle(isSelected ? Color.white : Color.auraOnSurface)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .padding(.horizontal, 7)
+                        .background(isSelected ? Color.auraSuccess : Color.auraSurface)
+                        .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous)
+                                .stroke(isSelected ? Color.auraSuccess : Color.auraOutline, lineWidth: 1)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                }
+            }
+        }
+    }
+
+    private var platformSection: some View {
+        AuraSectionCard(
+            title: isEnglish ? "Listening service" : "Müzik uygulaması",
+            subtitle: isEnglish ? "Songs open directly in this app" : "Şarkılar doğrudan bu uygulamada açılır",
+            icon: "headphones",
+            tint: .auraSecondary
+        ) {
+            VStack(spacing: 8) {
+                ForEach(viewModel.availablePlatforms, id: \.self) { platform in
+                    let isSelected = viewModel.selectedPlatform == platform
+                    Button {
+                        viewModel.selectedPlatform = platform
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: platformIcon(platform))
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundStyle(isSelected ? Color.white : Color.auraTextSecondary)
+                                .frame(width: 36, height: 36)
+                                .background(isSelected ? Color.auraDeepAccent : Color.auraSurface)
+                                .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
+                            Text(platform)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Color.auraOnSurface)
+                            Spacer()
+                            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                .font(.system(size: 20))
+                                .foregroundStyle(isSelected ? Color.auraPrimary : Color.auraOutline)
+                        }
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 56)
+                        .background(isSelected ? Color.auraPrimary.opacity(0.07) : Color.auraSurface)
+                        .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous)
+                                .stroke(isSelected ? Color.auraPrimary.opacity(0.35) : Color.auraOutline, lineWidth: 1)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                }
+            }
+        }
+    }
+
+    private var aboutRow: some View {
+        Button {
+            showAbout = true
+        } label: {
+            HStack(spacing: 12) {
+                AuraIconBadge(icon: "info.circle.fill", tint: .auraTertiary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(isEnglish ? "About AuraTune" : "AuraTune hakkında")
+                        .font(.auraSectionTitle)
+                        .foregroundStyle(Color.auraOnSurface)
+                    Text(isEnglish ? "Version, features and credits" : "Sürüm, özellikler ve bilgiler")
+                        .font(.caption)
+                        .foregroundStyle(Color.auraTextSecondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.auraTextSecondary)
+            }
+            .auraCardSurface()
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var accountSection: some View {
+        AuraSectionCard(
+            title: isEnglish ? "Account" : "Hesap",
+            subtitle: firebaseManager.currentUser?.email,
+            icon: "person.crop.circle",
+            tint: .auraTextSecondary
+        ) {
+            VStack(spacing: 10) {
+                Button {
+                    do {
+                        try firebaseManager.signOut()
+                    } catch {
+                        authActionError = error.localizedDescription
+                    }
+                } label: {
+                    Label(isEnglish ? "Log out" : "Çıkış yap", systemImage: "rectangle.portrait.and.arrow.right")
+                }
+                .buttonStyle(M3TonalButton())
+
+                Button {
+                    showDeleteConfirmation = true
+                } label: {
+                    HStack(spacing: 9) {
+                        if isDeletingAccount {
+                            ProgressView()
+                                .tint(.auraDanger)
+                        } else {
+                            Image(systemName: "trash")
+                        }
+                        Text(isEnglish ? "Delete account" : "Hesabı sil")
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.auraDanger)
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .background(Color.auraDanger.opacity(0.07))
+                    .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.controlRadius, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: AuraMetrics.controlRadius, style: .continuous)
+                            .stroke(Color.auraDanger.opacity(0.18), lineWidth: 1)
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(isDeletingAccount)
+            }
+        }
+    }
+
+    private func selectionButton(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(isSelected ? Color.white : Color.auraOnSurface)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(isSelected ? Color.auraTertiary : Color.auraSurface)
+                .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous)
+                        .stroke(isSelected ? Color.auraTertiary : Color.auraOutline, lineWidth: 1)
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private var saveBar: some View {
+        VStack(spacing: 0) {
+            Divider()
+            Button(action: saveChanges) {
+                HStack(spacing: 9) {
+                    if viewModel.isSaving {
+                        ProgressView()
+                            .tint(.white)
+                    } else {
+                        Image(systemName: "checkmark")
+                    }
+                    Text(viewModel.isSaving
+                        ? (isEnglish ? "Saving..." : "Kaydediliyor...")
+                        : (isEnglish ? "Save changes" : "Değişiklikleri kaydet"))
+                }
+            }
+            .buttonStyle(M3FilledButton())
+            .disabled(viewModel.userName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isSaving)
+            .padding(.horizontal, AuraMetrics.pagePadding)
+            .padding(.vertical, 12)
+            .auraContentColumn()
+        }
+        .background(.ultraThinMaterial)
+    }
+
+    private var savedToast: some View {
+        HStack(spacing: 9) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(Color.auraSuccess)
+            Text(isEnglish ? "Changes saved" : "Değişiklikler kaydedildi")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.auraOnSurface)
+            Spacer()
+        }
+        .padding(14)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous)
+                .stroke(Color.auraOutline, lineWidth: 1)
+        }
+        .shadow(color: Color.auraDeepAccent.opacity(0.12), radius: 12, y: 5)
+    }
+
+    private func errorPanel(_ message: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+            Text(message)
+                .font(.footnote)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(Color.auraDanger)
+        .padding(14)
+        .background(Color.auraDanger.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
+    }
+
+    private func saveChanges() {
+        isNameFocused = false
+        authActionError = nil
+        Task {
+            do {
+                try await viewModel.saveSettings()
+                withAnimation { showSavedToast = true }
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                withAnimation { showSavedToast = false }
+            } catch {
+                authActionError = isEnglish
+                    ? "Changes could not be saved. Check your connection and try again."
+                    : "Değişiklikler kaydedilemedi. Bağlantını kontrol edip tekrar dene."
+            }
+        }
+    }
+
+    private func deleteAccount() {
+        Task {
+            isDeletingAccount = true
+            do {
+                try await firebaseManager.deleteCurrentAccount()
+            } catch {
+                authActionError = error.localizedDescription
+            }
+            isDeletingAccount = false
+        }
+    }
+
     private func platformIcon(_ platform: String) -> String {
         switch platform {
         case "Spotify": return "music.note"

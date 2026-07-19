@@ -10,46 +10,26 @@ struct RemindersView: View {
 
     enum ReminderTab { case water, medicine }
 
-    private var heroGradientColors: [Color] {
-        if remindersManager.hasUnlockedOceanTheme {
-            return selectedTab == .water
-                ? [Color(hex: "005B96"), Color(hex: "00A8CC")]
-                : [Color(hex: "0B3C5D"), Color(hex: "328CC1")]
-        }
-
-        return selectedTab == .water
-            ? [Color(hex: "1A6BB5"), Color(hex: "4FC3F7")]
-            : [Color(hex: "6A1B9A"), Color(hex: "AB47BC")]
-    }
-
     private var selectedTabColor: Color {
-        if remindersManager.hasUnlockedOceanTheme {
-            return selectedTab == .water ? Color(hex: "0077B6") : Color(hex: "0B3C5D")
+        if selectedTab == .water {
+            return remindersManager.hasUnlockedOceanTheme ? Color(hex: "246B72") : .auraTertiary
         }
-
-        return selectedTab == .water ? Color(hex: "0288D1") : Color(hex: "7B1FA2")
+        return .auraPrimary
     }
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .top) {
-                Color.auraSurface.ignoresSafeArea()
-
-                // Hero gradient
-                LinearGradient(
-                    colors: heroGradientColors,
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .frame(height: 280)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .ignoresSafeArea(edges: .top)
-
+            AuraFixedHeaderLayout {
+                remindersHero
+            } content: {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {
-                        // Hero
-                        remindersHero
-                        // Content
+                        segmentPicker
+                            .padding(.horizontal, AuraMetrics.pagePadding)
+                            .padding(.top, 20)
+                            .padding(.bottom, 4)
+                            .auraContentColumn()
+
                         if selectedTab == .water {
                             WaterReminderSection(isEnglish: isEnglish)
                                 .transition(.asymmetric(
@@ -73,67 +53,55 @@ struct RemindersView: View {
 
     // MARK: - Hero
     private var remindersHero: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(isEnglish ? "Reminders" : "Hatırlatıcı")
-                        .font(.system(size: 32, weight: .bold))
-                        .foregroundColor(.white)
-                }
-                Spacer()
-                ZStack {
-                    Circle()
-                        .fill(Color.white.opacity(0.15))
-                        .frame(width: 64, height: 64)
-                    Image(systemName: selectedTab == .water ? "drop.fill" : "pills.fill")
-                        .font(.system(size: 28, weight: .medium))
-                        .foregroundColor(.white)
-                }
-            }
-
-            segmentPicker
-                .padding(.horizontal, 20)
-        }
-        .padding(.horizontal, 24)
-        .padding(.top, 24)
-        .padding(.bottom, 18)
+        AuraPageHeader(
+            eyebrow: isEnglish ? "Daily care" : "Günlük bakım",
+            title: isEnglish ? "Reminders" : "Hatırlatıcılar",
+            subtitle: selectedTab == .water
+                ? (isEnglish ? "Hydration, on your schedule" : "Su hedefin, senin programın")
+                : (isEnglish ? "Your medicine schedule at a glance" : "İlaç programın tek bakışta"),
+            icon: selectedTab == .water ? "drop.fill" : "pills.fill",
+            accent: selectedTabColor
+        )
     }
 
     // MARK: - Segment Picker
     private var segmentPicker: some View {
         HStack(spacing: 0) {
             tabButton(
-                title: isEnglish ? "💧 Water" : "💧 Su",
+                title: isEnglish ? "Water" : "Su",
+                icon: "drop.fill",
                 tab: .water
             )
             tabButton(
-                title: isEnglish ? "💊 Medicine" : "💊 İlaç",
+                title: isEnglish ? "Medicine" : "İlaç",
+                icon: "pills.fill",
                 tab: .medicine
             )
         }
-        .background(Color.white.opacity(0.9))
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: .black.opacity(0.06), radius: 8, x: 0, y: 2)
+        .padding(4)
+        .background(Color.auraOutline.opacity(0.45))
+        .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.controlRadius, style: .continuous))
     }
 
-    private func tabButton(title: String, tab: ReminderTab) -> some View {
-        Button {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+    private func tabButton(title: String, icon: String, tab: ReminderTab) -> some View {
+        let isSelected = selectedTab == tab
+
+        return Button {
+            withAnimation(.easeOut(duration: 0.2)) {
                 selectedTab = tab
             }
         } label: {
-            Text(title)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(selectedTab == tab ? .white : Color.auraOnSurface.opacity(0.5))
+            Label(title, systemImage: icon)
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(isSelected ? selectedTabColor : .auraTextSecondary)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(
-                    selectedTab == tab ? selectedTabColor : Color.clear
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                .padding(4)
+                .frame(minHeight: 44)
+                .background(isSelected ? Color.auraSurfaceElevated : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .shadow(color: isSelected ? Color.auraDeepAccent.opacity(0.07) : .clear, radius: 4, y: 2)
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
 
@@ -216,16 +184,15 @@ struct WaterReminderSection: View {
 
     var body: some View {
         VStack(spacing: 16) {
+            waterProgressCard
+            waterSettingsCard
+            saveButton
             rewardsCard
             shopCard
-            waterProgressCard
-            // Settings Card
-            waterSettingsCard
-            // Save
-            saveButton
         }
         .padding(.horizontal, 20)
         .padding(.top, 16)
+        .auraContentColumn()
         .onAppear { draftSettings = remindersManager.waterSettings }
     }
 
@@ -240,7 +207,7 @@ struct WaterReminderSection: View {
                     levelBadge
                     Text("\(remindersManager.waterRewards.coins) \(loc("water.rewards.coinUnit"))")
                         .font(.system(size: 16, weight: .heavy))
-                        .foregroundColor(Color(hex: "F39C12"))
+                        .foregroundColor(.auraSecondary)
                 }
 
                 HStack(spacing: 12) {
@@ -248,14 +215,14 @@ struct WaterReminderSection: View {
                         title: loc("water.rewards.action.drank"),
                         value: "+2",
                         count: remindersManager.waterRewards.todayDrankActions,
-                        color: Color(hex: "1E824C")
+                        color: .auraSuccess
                     )
 
                     rewardPill(
                         title: loc("water.rewards.action.skipped"),
                         value: "-1",
                         count: remindersManager.waterRewards.todaySkippedActions,
-                        color: Color(hex: "C0392B")
+                        color: .auraDanger
                     )
                 }
 
@@ -266,7 +233,7 @@ struct WaterReminderSection: View {
                 HStack {
                     Text(String(format: loc("water.rewards.currentStreakFormat"), remindersManager.waterRewards.currentStreakDays))
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(Color(hex: "0288D1"))
+                        .foregroundColor(.auraTertiary)
                     Spacer()
                     Text(String(format: loc("water.rewards.bestStreakFormat"), remindersManager.waterRewards.bestStreakDays))
                         .font(.system(size: 12, weight: .semibold))
@@ -281,7 +248,7 @@ struct WaterReminderSection: View {
 
                 Text(loc("water.rewards.streakBonus"))
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(Color(hex: "7B1FA2"))
+                    .foregroundColor(.auraPrimary)
             }
         }
     }
@@ -335,7 +302,7 @@ struct WaterReminderSection: View {
                 if let shopFeedback {
                     Text(shopFeedback)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundColor(Color(hex: "1E824C"))
+                        .foregroundColor(.auraSuccess)
                         .transition(.opacity)
                 }
             }
@@ -350,7 +317,7 @@ struct WaterReminderSection: View {
         return HStack(spacing: 10) {
             Image(systemName: item.icon)
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(Color(hex: "7B1FA2"))
+                .foregroundColor(.auraPrimary)
                 .frame(width: 28)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -359,7 +326,7 @@ struct WaterReminderSection: View {
                     .foregroundColor(.auraOnSurface)
                 Text(effectSubtitle(for: item))
                     .font(.system(size: 11, weight: .medium))
-                    .foregroundColor(isActiveEffect ? Color(hex: "1E824C") : .auraOnSurface.opacity(0.55))
+                    .foregroundColor(isActiveEffect ? .auraSuccess : .auraTextSecondary)
             }
 
             Spacer()
@@ -370,7 +337,7 @@ struct WaterReminderSection: View {
                     .foregroundColor(.white)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 5)
-                    .background(Color(hex: "1E824C"))
+                    .background(Color.auraSuccess)
                     .clipShape(Capsule())
             } else {
                 Button {
@@ -386,17 +353,17 @@ struct WaterReminderSection: View {
                     Text("\(item.cost) \(loc("water.rewards.coinUnit"))")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.white)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 5)
-                        .background(canBuy ? Color(hex: "7B1FA2") : Color.auraOnSurface.opacity(0.3))
-                        .clipShape(Capsule())
+                        .padding(.horizontal, 10)
+                        .frame(minHeight: AuraMetrics.minimumTapTarget)
+                        .background(canBuy ? Color.auraPrimary : Color.auraOutline)
+                        .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
                 }
                 .disabled(!canBuy)
             }
         }
         .padding(10)
         .background(Color.auraOnSurface.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
     }
 
     private func effectSubtitle(for item: WaterRewardShopItem) -> String {
@@ -431,7 +398,7 @@ struct WaterReminderSection: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
         .background(Color.auraOnSurface.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
     }
 
     // MARK: Progress Card
@@ -448,13 +415,13 @@ struct WaterReminderSection: View {
                     // Circular Progress
                     ZStack {
                         Circle()
-                            .stroke(Color(hex: "4FC3F7").opacity(0.2), lineWidth: 8)
+                            .stroke(Color.auraTertiary.opacity(0.16), lineWidth: 8)
                             .frame(width: 72, height: 72)
                         Circle()
                             .trim(from: 0, to: progressFraction)
                             .stroke(
                                 LinearGradient(
-                                    colors: [Color(hex: "0288D1"), Color(hex: "4FC3F7")],
+                                    colors: [Color.auraTertiary, Color.auraTertiary.opacity(0.62)],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
                                 ),
@@ -466,10 +433,10 @@ struct WaterReminderSection: View {
                         VStack(spacing: 1) {
                             Text(String(format: "%.2g", remindersManager.waterSettings.litersToday))
                                 .font(.system(size: 18, weight: .bold))
-                                .foregroundColor(Color(hex: "0288D1"))
+                                .foregroundColor(.auraTertiary)
                             Text("L")
                                 .font(.system(size: 11, weight: .semibold))
-                                .foregroundColor(Color(hex: "4FC3F7"))
+                                .foregroundColor(.auraTextSecondary)
                         }
                     }
                 }
@@ -504,24 +471,13 @@ struct WaterReminderSection: View {
                         Text(isEnglish ? "Log a Glass" : "Bardak İçtim")
                             .font(.system(size: 15, weight: .semibold))
                     }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 13)
-                    .background(
-                        LinearGradient(
-                            colors: [Color(hex: "0288D1"), Color(hex: "4FC3F7")],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(M3FilledButton(tint: .auraTertiary))
                 .disabled(remindersManager.waterSettings.glassesToday >= draftSettings.dailyGoalGlasses + 5)
 
                 if showUndoBanner {
                     HStack(spacing: 10) {
-                        Text(isEnglish ? "Logged. Tap undo if this was accidental." : "Kaydedildi. Yanlislikla bastiysan geri al.")
+                        Text(isEnglish ? "Logged. Tap undo if this was accidental." : "Kaydedildi. Yanlışlıkla bastıysan geri al.")
                             .font(.system(size: 12, weight: .medium))
                             .foregroundColor(.auraOnSurface.opacity(0.7))
 
@@ -540,9 +496,9 @@ struct WaterReminderSection: View {
                                 .font(.system(size: 12, weight: .bold))
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(Color(hex: "C0392B"))
-                                .clipShape(Capsule())
+                                .frame(minHeight: AuraMetrics.minimumTapTarget)
+                                .background(Color.auraDanger)
+                                .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
                         }
                         .buttonStyle(.plain)
                     }
@@ -551,9 +507,12 @@ struct WaterReminderSection: View {
                 }
 
                 if remindersManager.waterSettings.litersToday >= draftSettings.dailyGoalLiters {
-                    Text(isEnglish ? "🎉 Daily goal achieved!" : "🎉 Günlük hedefe ulaştın!")
+                    Label(
+                        isEnglish ? "Daily goal achieved" : "Günlük hedefe ulaştın",
+                        systemImage: "sparkles"
+                    )
                         .font(.system(size: 13, weight: .semibold))
-                        .foregroundColor(Color(hex: "0288D1"))
+                        .foregroundColor(.auraTertiary)
                 }
             }
         }
@@ -566,14 +525,14 @@ struct WaterReminderSection: View {
                 // Enable Toggle
                 HStack {
                     Image(systemName: "bell.badge.fill")
-                        .foregroundColor(Color(hex: "0288D1"))
+                        .foregroundColor(.auraTertiary)
                         .font(.system(size: 18))
                     Text(isEnglish ? "Water Reminders" : "Su Hatırlatıcısı")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(.auraOnSurface)
                     Spacer()
                     Toggle("", isOn: $draftSettings.isEnabled)
-                        .tint(Color(hex: "0288D1"))
+                        .tint(.auraTertiary)
                 }
                 .padding(.bottom, 16)
 
@@ -586,7 +545,7 @@ struct WaterReminderSection: View {
                             .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.auraOnSurface.opacity(0.6))
 
-                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], spacing: 8) {
                             ForEach(intervalOptions, id: \.self) { min in
                                 Button {
                                     withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
@@ -597,13 +556,13 @@ struct WaterReminderSection: View {
                                         .font(.system(size: 12, weight: .medium))
                                         .foregroundColor(draftSettings.intervalMinutes == min ? .white : .auraOnSurface.opacity(0.7))
                                         .frame(maxWidth: .infinity)
-                                        .padding(.vertical, 8)
+                                        .frame(minHeight: AuraMetrics.minimumTapTarget)
                                         .background(
                                             draftSettings.intervalMinutes == min
-                                                ? Color(hex: "0288D1")
+                                                ? Color.auraTertiary
                                                 : Color.auraOnSurface.opacity(0.06)
                                         )
-                                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                                        .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
                                 }
                                 .buttonStyle(.plain)
                             }
@@ -626,7 +585,7 @@ struct WaterReminderSection: View {
                                     .foregroundColor(.auraOnSurface.opacity(0.5))
                                 DatePicker("", selection: $draftSettings.startTime, displayedComponents: .hourAndMinute)
                                     .labelsHidden()
-                                    .tint(Color(hex: "0288D1"))
+                                    .tint(.auraTertiary)
                             }
                             Image(systemName: "arrow.right")
                                 .foregroundColor(.auraOnSurface.opacity(0.3))
@@ -636,7 +595,7 @@ struct WaterReminderSection: View {
                                     .foregroundColor(.auraOnSurface.opacity(0.5))
                                 DatePicker("", selection: $draftSettings.endTime, displayedComponents: .hourAndMinute)
                                     .labelsHidden()
-                                    .tint(Color(hex: "0288D1"))
+                                    .tint(.auraTertiary)
                             }
                             Spacer()
                         }
@@ -654,10 +613,10 @@ struct WaterReminderSection: View {
                             Spacer()
                             Text(String(format: isEnglish ? "%.1f litres" : "%.1f litre", draftSettings.dailyGoalLiters))
                                 .font(.system(size: 13, weight: .bold))
-                                .foregroundColor(Color(hex: "0288D1"))
+                                .foregroundColor(.auraTertiary)
                         }
                         Slider(value: $draftSettings.dailyGoalLiters, in: 1.0...4.5, step: 0.25)
-                            .tint(Color(hex: "0288D1"))
+                            .tint(.auraTertiary)
                         HStack {
                             Text("1L")
                                 .font(.caption2)
@@ -676,19 +635,19 @@ struct WaterReminderSection: View {
                         if isLoadingMotivations {
                             ProgressView()
                                 .scaleEffect(0.75)
-                                .tint(Color(hex: "0288D1"))
+                                .tint(.auraTertiary)
                             Text(isEnglish ? "Fetching AI motivation messages..." : "AI motivasyon mesajları alınıyor...")
                                 .font(.system(size: 12))
                                 .foregroundColor(.auraOnSurface.opacity(0.55))
                         } else if !remindersManager.waterMotivations.isEmpty {
                             Image(systemName: "sparkles")
-                                .foregroundColor(Color(hex: "0288D1"))
+                                .foregroundColor(.auraTertiary)
                                 .font(.system(size: 13))
                             Text(isEnglish
                                  ? "\(remindersManager.waterMotivations.count) AI messages ready ✓"
                                  : "\(remindersManager.waterMotivations.count) AI mesajı hazır ✓")
                                 .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(Color(hex: "0288D1"))
+                                .foregroundColor(.auraTertiary)
                         } else {
                             Image(systemName: "sparkles")
                                 .foregroundColor(.auraOnSurface.opacity(0.35))
@@ -726,31 +685,9 @@ struct WaterReminderSection: View {
                 Image(systemName: saveButtonIcon)
                 Text(saveButtonTitle)
             }
-            .font(.system(size: 16, weight: .semibold))
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 15)
-            .background(
-                Group {
-                    if showSaved {
-                        Color.green
-                    } else if !hasUnsavedChanges && !needsInitialSave {
-                        Color.auraOnSurface.opacity(0.3)
-                    } else {
-                        LinearGradient(
-                            colors: [Color(hex: "0288D1"), Color(hex: "4FC3F7")],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    }
-                }
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: showSaved)
-            .animation(.spring(response: 0.3, dampingFraction: 0.7), value: hasUnsavedChanges)
         }
-        .buttonStyle(.plain)
-        .disabled((!hasUnsavedChanges && !needsInitialSave) || isLoadingMotivations)
+        .buttonStyle(M3FilledButton(tint: showSaved ? .auraSuccess : .auraTertiary))
+        .disabled(((!hasUnsavedChanges && !needsInitialSave) && !showSaved) || isLoadingMotivations)
     }
 }
 
@@ -767,9 +704,6 @@ struct MedicineReminderSection: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            medicineRewardsCard
-
-            // List
             if remindersManager.medicines.isEmpty {
                 emptyState
             } else {
@@ -778,7 +712,7 @@ struct MedicineReminderSection: View {
                 }
                 .padding(.top, 4)
             }
-            // Add Button
+
             Button {
                 showAddSheet = true
             } label: {
@@ -788,22 +722,14 @@ struct MedicineReminderSection: View {
                     Text(isEnglish ? "Add Medicine" : "İlaç Ekle")
                         .font(.system(size: 15, weight: .semibold))
                 }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 15)
-                .background(
-                    LinearGradient(
-                        colors: [Color(hex: "6A1B9A"), Color(hex: "AB47BC")],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(M3FilledButton())
+
+            medicineRewardsCard
         }
         .padding(.horizontal, 20)
         .padding(.top, 16)
+        .auraContentColumn()
         .sheet(isPresented: $showAddSheet) {
             MedicineEditSheet(isEnglish: isEnglish, medicine: nil) { medicine in
                 remindersManager.addMedicine(medicine)
@@ -826,7 +752,7 @@ struct MedicineReminderSection: View {
                     Spacer()
                     Text("\(remindersManager.medicineRewards.coins) \(loc("medicine.rewards.coinUnit"))")
                         .font(.system(size: 16, weight: .heavy))
-                        .foregroundColor(Color(hex: "F39C12"))
+                        .foregroundColor(.auraSecondary)
                 }
 
                 HStack(spacing: 12) {
@@ -834,14 +760,14 @@ struct MedicineReminderSection: View {
                         title: loc("medicine.rewards.action.took"),
                         value: "+1",
                         count: remindersManager.medicineRewards.todayTookActions,
-                        color: Color(hex: "1E824C")
+                        color: .auraSuccess
                     )
 
                     medicineRewardPill(
                         title: loc("medicine.rewards.action.skipped"),
                         value: "-1",
                         count: remindersManager.medicineRewards.todaySkippedActions,
-                        color: Color(hex: "C0392B")
+                        color: .auraDanger
                     )
                 }
 
@@ -869,7 +795,7 @@ struct MedicineReminderSection: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
         .background(Color.auraOnSurface.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
     }
 
     private var emptyState: some View {
@@ -877,7 +803,7 @@ struct MedicineReminderSection: View {
             VStack(spacing: 16) {
                 Image(systemName: "pills")
                     .font(.system(size: 44))
-                    .foregroundColor(Color(hex: "AB47BC").opacity(0.4))
+                    .foregroundColor(Color.auraPrimary.opacity(0.42))
                 Text(isEnglish
                      ? "No medicine reminders yet"
                      : "Henüz ilaç hatırlatıcısı yok")
@@ -895,14 +821,14 @@ struct MedicineReminderSection: View {
             HStack(spacing: 14) {
                 // Icon
                 ZStack {
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous)
                         .fill(medicine.isEnabled
-                              ? Color(hex: "AB47BC").opacity(0.15)
+                              ? Color.auraPrimary.opacity(0.1)
                               : Color.gray.opacity(0.1))
                         .frame(width: 46, height: 46)
                     Image(systemName: "pills.fill")
                         .font(.system(size: 20))
-                        .foregroundColor(medicine.isEnabled ? Color(hex: "7B1FA2") : .gray)
+                        .foregroundColor(medicine.isEnabled ? .auraPrimary : .gray)
                 }
 
                 // Info
@@ -916,7 +842,7 @@ struct MedicineReminderSection: View {
                     HStack(spacing: 4) {
                         Image(systemName: "clock.fill")
                             .font(.system(size: 10))
-                            .foregroundColor(Color(hex: "AB47BC").opacity(0.7))
+                            .foregroundColor(Color.auraPrimary.opacity(0.7))
                         Text(medicine.times.map { timeString($0) }.joined(separator: ", "))
                             .font(.system(size: 12))
                             .foregroundColor(.auraOnSurface.opacity(0.55))
@@ -926,35 +852,40 @@ struct MedicineReminderSection: View {
                 Spacer()
 
                 VStack(spacing: 10) {
-                    // Toggle
                     Toggle("", isOn: Binding(
                         get: { medicine.isEnabled },
                         set: { _ in remindersManager.toggleMedicine(medicine) }
                     ))
-                    .tint(Color(hex: "7B1FA2"))
+                    .tint(.auraPrimary)
                     .scaleEffect(0.85)
 
-                    // Edit
-                    Button {
-                        editingMedicine = medicine
+                    Menu {
+                        Button {
+                            editingMedicine = medicine
+                        } label: {
+                            Label(isEnglish ? "Edit" : "Düzenle", systemImage: "pencil")
+                        }
+
+                        Button(role: .destructive) {
+                            deleteMedicine(medicine)
+                        } label: {
+                            Label(isEnglish ? "Delete" : "Sil", systemImage: "trash")
+                        }
                     } label: {
-                        Image(systemName: "pencil.circle.fill")
-                            .font(.system(size: 22))
-                            .foregroundColor(Color(hex: "AB47BC").opacity(0.6))
+                        Image(systemName: "ellipsis")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.auraTextSecondary)
+                            .frame(width: AuraMetrics.minimumTapTarget, height: AuraMetrics.minimumTapTarget)
                     }
-                    .buttonStyle(.plain)
+                    .accessibilityLabel(isEnglish ? "Medicine options" : "İlaç seçenekleri")
                 }
             }
         }
-        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-            Button(role: .destructive) {
-                if let idx = remindersManager.medicines.firstIndex(where: { $0.id == medicine.id }) {
-                    remindersManager.deleteMedicine(at: IndexSet(integer: idx))
-                }
-            } label: {
-                Label(isEnglish ? "Delete" : "Sil", systemImage: "trash")
-            }
-        }
+    }
+
+    private func deleteMedicine(_ medicine: MedicineReminder) {
+        guard let index = remindersManager.medicines.firstIndex(where: { $0.id == medicine.id }) else { return }
+        remindersManager.deleteMedicine(at: IndexSet(integer: index))
     }
 
     private func timeString(_ date: Date) -> String {
@@ -987,20 +918,14 @@ struct MedicineEditSheet: View {
                     VStack(alignment: .leading, spacing: 8) {
                         label(isEnglish ? "Medicine Name" : "İlaç Adı")
                         TextField(isEnglish ? "e.g. Vitamin D" : "örn. D Vitamini", text: $name)
-                            .textFieldStyle(.plain)
-                            .padding(14)
-                            .background(Color.auraOnSurface.opacity(0.05))
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .auraField()
                     }
 
                     // Dose
                     VStack(alignment: .leading, spacing: 8) {
                         label(isEnglish ? "Dose" : "Doz")
                         TextField(isEnglish ? "e.g. 1 tablet" : "örn. 1 tablet", text: $dose)
-                            .textFieldStyle(.plain)
-                            .padding(14)
-                            .background(Color.auraOnSurface.opacity(0.05))
-                            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                            .auraField()
                     }
 
                     // Times
@@ -1012,8 +937,9 @@ struct MedicineEditSheet: View {
                                 withAnimation { times.append(MedicineReminder.defaultTime()) }
                             } label: {
                                 Image(systemName: "plus.circle.fill")
-                                    .foregroundColor(Color(hex: "7B1FA2"))
+                                    .foregroundColor(.auraPrimary)
                                     .font(.system(size: 22))
+                                    .frame(width: AuraMetrics.minimumTapTarget, height: AuraMetrics.minimumTapTarget)
                             }
                             .buttonStyle(.plain)
                         }
@@ -1037,7 +963,7 @@ struct MedicineEditSheet: View {
                     } label: {
                         saveLabel
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(M3FilledButton())
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
                 .padding(20)
@@ -1050,7 +976,7 @@ struct MedicineEditSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(isEnglish ? "Cancel" : "İptal") { dismiss() }
-                        .foregroundColor(Color(hex: "7B1FA2"))
+                        .foregroundColor(.auraPrimary)
                 }
             }
         }
@@ -1078,46 +1004,27 @@ struct MedicineEditSheet: View {
         HStack {
             DatePicker("", selection: $times[idx], displayedComponents: .hourAndMinute)
                 .labelsHidden()
-                .tint(Color(hex: "7B1FA2"))
+                .tint(.auraPrimary)
             Spacer()
             if times.count > 1 {
                 Button {
                     let i = idx
-                    withAnimation { times.remove(at: i) }
+                    withAnimation { _ = times.remove(at: i) }
                 } label: {
                     Image(systemName: "minus.circle.fill")
-                        .foregroundColor(Color.red.opacity(0.7))
+                        .foregroundColor(.auraDanger)
                         .font(.system(size: 22))
+                        .frame(width: AuraMetrics.minimumTapTarget, height: AuraMetrics.minimumTapTarget)
                 }
                 .buttonStyle(.plain)
             }
         }
         .padding(12)
         .background(timeRowBackground)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
     }
 
     private var saveLabel: some View {
-        let isEmpty = name.trimmingCharacters(in: .whitespaces).isEmpty
-        let bgColor = Color(red: 0.5, green: 0.5, blue: 0.5, opacity: 0.4)
         return Text(isEnglish ? "Save" : "Kaydet")
-            .font(.system(size: 16, weight: .semibold))
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 15)
-            .background(
-                ZStack {
-                    if !isEmpty {
-                        LinearGradient(
-                            colors: [Color(hex: "6A1B9A"), Color(hex: "AB47BC")],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    } else {
-                        bgColor
-                    }
-                }
-            )
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }

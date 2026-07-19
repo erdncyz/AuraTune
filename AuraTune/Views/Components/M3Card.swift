@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Material 3 Card Component (Aura Theme)
+/// Quiet elevated surface for grouped content.
 struct M3Card<Content: View>: View {
     let content: Content
     
@@ -10,13 +10,13 @@ struct M3Card<Content: View>: View {
     
     var body: some View {
         content
-            .padding(16)
+            .padding(AuraMetrics.cardPadding)
             .background(Color.auraSurfaceVariant)
-            .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Color.auraOnSurface.opacity(0.1), lineWidth: 1)
+                RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous)
+                    .stroke(Color.auraOutline.opacity(0.8), lineWidth: 1)
             )
-            .shadow(color: Color.black.opacity(0.04), radius: 10, x: 0, y: 4)
+            .shadow(color: Color.auraDeepAccent.opacity(0.05), radius: 12, x: 0, y: 5)
     }
 }

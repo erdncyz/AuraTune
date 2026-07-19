@@ -8,6 +8,17 @@ extension Notification.Name {
     static let firebaseAuthUserDidChange = Notification.Name("firebaseAuthUserDidChange")
 }
 
+enum FirebaseManagerError: LocalizedError {
+    case unauthenticated
+
+    var errorDescription: String? {
+        switch self {
+        case .unauthenticated:
+            return "The authentication session is unavailable."
+        }
+    }
+}
+
 /// Firebase Manager to handle auth and Firestore database interactions
 class FirebaseManager: ObservableObject {
     static let shared = FirebaseManager()
@@ -179,21 +190,17 @@ class FirebaseManager: ObservableObject {
     }
     
     /// Updates or creates user profile in Firestore
-    func saveProfile(_ profile: Profile) async {
-        guard let userId = currentUser?.uid else { return }
+    func saveProfile(_ profile: Profile) async throws {
+        guard let userId = currentUser?.uid else {
+            throw FirebaseManagerError.unauthenticated
+        }
         var updatedProfile = profile
         if updatedProfile.id == nil {
             updatedProfile.id = UUID(uuidString: userId)
         }
-        
-        do {
-            try db.collection("profiles").document(userId).setData(from: updatedProfile, merge: true)
-            
-            DispatchQueue.main.async {
-                self.userProfile = updatedProfile
-            }
-        } catch {
-            print("Failed to save profile: \(error)")
-        }
+
+        let data = try Firestore.Encoder().encode(updatedProfile)
+        try await db.collection("profiles").document(userId).setData(data, merge: true)
+        userProfile = updatedProfile
     }
 }

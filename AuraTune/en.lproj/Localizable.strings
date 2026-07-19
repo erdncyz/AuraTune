@@ -110,14 +110,14 @@
 "auth.error.reauthRequired" = "Please sign in again to continue.";
 
 "water.rewards.title" = "Hydration Rewards";
-"water.rewards.coinUnit" = "coin";
+"water.rewards.coinUnit" = "coins";
 "water.rewards.action.drank" = "I Drank";
 "water.rewards.action.skipped" = "Not Yet";
-"water.rewards.dailyGoalBonus" = "Daily goal complete bonus: +10 coin";
-"water.rewards.currentStreakFormat" = "Current streak: %d day";
+"water.rewards.dailyGoalBonus" = "Daily goal bonus: +10 coins";
+"water.rewards.currentStreakFormat" = "Current streak: %d days";
 "water.rewards.bestStreakFormat" = "Best: %d";
-"water.rewards.toNextLevelFormat" = "%d coin to next level";
-"water.rewards.streakBonus" = "7-day streak bonus: +20 coin";
+"water.rewards.toNextLevelFormat" = "%d coins to next level";
+"water.rewards.streakBonus" = "7-day streak bonus: +20 coins";
 
 "water.level.bronze" = "Bronze";
 "water.level.silver" = "Silver";
@@ -140,7 +140,7 @@
 "water.shop.item.ai.subtitle" = "Extra motivational messages";
 
 "medicine.rewards.title" = "Medicine Rewards";
-"medicine.rewards.coinUnit" = "coin";
+"medicine.rewards.coinUnit" = "coins";
 "medicine.rewards.action.took" = "I Took It";
 "medicine.rewards.action.skipped" = "Skipped";
 "medicine.rewards.caption" = "Earn medicine coin rewards from notification actions";
