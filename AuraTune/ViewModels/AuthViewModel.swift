@@ -96,6 +96,10 @@ final class AuthViewModel: ObservableObject {
             return localized("auth.error.unexpected")
         }
 
+        if isSimulatorKeychainError(authError) {
+            return localized("auth.error.simulatorKeychain")
+        }
+
         switch authError.code {
         case 17008:
             return localized("auth.error.invalidEmail")
@@ -114,6 +118,27 @@ final class AuthViewModel: ObservableObject {
         default:
             return authError.localizedDescription
         }
+    }
+
+    private func isSimulatorKeychainError(_ error: NSError) -> Bool {
+        if error.domain == NSOSStatusErrorDomain && error.code == -34018 {
+            return true
+        }
+
+        if error.localizedDescription.localizedCaseInsensitiveContains("keychain") {
+            return true
+        }
+
+        if let failureReason = error.userInfo[NSLocalizedFailureReasonErrorKey] as? String,
+           failureReason.localizedCaseInsensitiveContains("keychain") {
+            return true
+        }
+
+        if let underlying = error.userInfo[NSUnderlyingErrorKey] as? NSError {
+            return isSimulatorKeychainError(underlying)
+        }
+
+        return false
     }
 
 }

@@ -125,7 +125,7 @@ final class SpotifyService {
 
         debugLog("Daily suggestion candidates ready: count=\(candidates.count)")
 
-        guard let picked = candidates.randomElement() else {
+        guard let picked = pickQualityCandidate(from: candidates) else {
             throw SpotifyError.noCandidates
         }
         let pickedTrack = picked.track
@@ -156,7 +156,7 @@ final class SpotifyService {
 
         debugLog("Daily mix candidates ready: count=\(candidates.count)")
 
-        let selected = Array(candidates.shuffled().prefix(count))
+        let selected = selectDiverseCandidates(from: candidates, count: count)
         guard selected.count == count else {
             throw SpotifyError.noCandidates
         }
@@ -211,6 +211,54 @@ final class SpotifyService {
         }
     }
 
+    /// Returns nil when Spotify cannot be reached, avoiding false rejection on network failures.
+    func validateTrack(title: String, artist: String) async -> Bool? {
+        do {
+            let token = try await accessToken()
+            var receivedValidResponse = false
+            let strict = try await performSearchRequest(
+                query: "track:\"\(title)\" artist:\"\(artist)\"",
+                market: nil,
+                token: token,
+                limit: nil,
+                offset: nil
+            )
+
+            if strict.statusCode == 200,
+               let isMatch = responseContainsMatchingTrack(
+                   strict.data,
+                   title: title,
+                   artist: artist
+               ) {
+                receivedValidResponse = true
+                if isMatch { return true }
+            }
+
+            let relaxed = try await performSearchRequest(
+                query: "\(title) \(artist)",
+                market: nil,
+                token: token,
+                limit: nil,
+                offset: nil
+            )
+
+            if relaxed.statusCode == 200,
+               let isMatch = responseContainsMatchingTrack(
+                   relaxed.data,
+                   title: title,
+                   artist: artist
+               ) {
+                receivedValidResponse = true
+                if isMatch { return true }
+            }
+
+            return receivedValidResponse ? false : nil
+        } catch {
+            debugLog("Track validation unavailable. error=\(error.localizedDescription)")
+            return nil
+        }
+    }
+
     private struct MarketTrack {
         let track: SearchResponse.Track
         let market: String
@@ -230,6 +278,8 @@ final class SpotifyService {
 
         var uniqueTracks: [MarketTrack] = []
         var seenKeys = Set<String>()
+
+        let maxTracksPerQuery = 10
 
         for (index, entry) in queries.enumerated() {
             if index > 0 {
@@ -252,13 +302,17 @@ final class SpotifyService {
             }
             debugLog("Search result count=\(tracks.count) for query=\(entry.query)")
 
+            var addedForQuery = 0
             for track in tracks where !track.explicit {
                 guard !track.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }
                 guard track.artists.contains(where: { !$0.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) else { continue }
+                guard isQualityTrackTitle(track.name) else { continue }
                 let stableKey = SongSuggestion(title: track.name, artist: artistDisplay(from: track.artists), message: "").stableKey
                 if excludedKeys.contains(stableKey) { continue }
                 if !seenKeys.insert(stableKey).inserted { continue }
                 uniqueTracks.append(MarketTrack(track: track, market: entry.market))
+                addedForQuery += 1
+                if addedForQuery >= maxTracksPerQuery { break }
             }
 
             if uniqueTracks.count >= targetCount {
@@ -281,7 +335,6 @@ final class SpotifyService {
 
         switch songLanguagePreference {
         case .turkish:
-            queries.append(("yeni türkçe şarkılar", "TR"))
             for genre in shuffled {
                 let lowered = genre.lowercased()
                 if lowered.contains("türk") || lowered.contains("turkish") {
@@ -290,16 +343,15 @@ final class SpotifyService {
                     queries.append(("türkçe \(genre)", "TR"))
                 }
             }
+            queries.append(("yeni türkçe şarkılar", "TR"))
 
         case .english:
-            queries.append(("new english music", "US"))
             for genre in shuffled {
                 queries.append(("\(genre) music", "US"))
             }
+            queries.append(("new english music", "US"))
 
         case .random:
-            queries.append(("yeni türkçe şarkılar", "TR"))
-            queries.append(("new english music", "US"))
             for (index, genre) in shuffled.enumerated() {
                 if index % 2 == 0 {
                     let lowered = genre.lowercased()
@@ -312,9 +364,62 @@ final class SpotifyService {
                     queries.append(("\(genre) music", "US"))
                 }
             }
+            queries.append(("yeni türkçe şarkılar", "TR"))
+            queries.append(("new english music", "US"))
         }
 
         return orderedUniqueQueries(queries)
+    }
+
+    private func pickQualityCandidate(from candidates: [MarketTrack]) -> MarketTrack? {
+        let qualified = candidates.filter { $0.track.popularity >= 20 }
+        let source = qualified.isEmpty ? candidates : qualified
+        let pool = Array(source.prefix(14))
+        guard !pool.isEmpty else { return nil }
+
+        let totalWeight = pool.reduce(0) { $0 + max(10, $1.track.popularity) }
+        var ticket = Int.random(in: 0..<totalWeight)
+        for candidate in pool {
+            ticket -= max(10, candidate.track.popularity)
+            if ticket < 0 { return candidate }
+        }
+        return pool.first
+    }
+
+    private func selectDiverseCandidates(from candidates: [MarketTrack], count: Int) -> [MarketTrack] {
+        let qualified = candidates.filter { $0.track.popularity >= 15 }
+        let source = qualified.count >= count ? qualified : candidates
+        let pool = Array(source.prefix(max(count * 5, 20))).shuffled()
+        var selected: [MarketTrack] = []
+        var artists = Set<String>()
+
+        for candidate in pool {
+            let artistKey = candidate.track.artists.first?.name.lowercased() ?? ""
+            guard artists.insert(artistKey).inserted else { continue }
+            selected.append(candidate)
+            if selected.count == count { return selected }
+        }
+
+        var selectedKeys = Set(selected.map(stableKey))
+        for candidate in pool where selectedKeys.insert(stableKey(candidate)).inserted {
+            selected.append(candidate)
+            if selected.count == count { break }
+        }
+        return selected
+    }
+
+    private func stableKey(_ candidate: MarketTrack) -> String {
+        SongSuggestion(
+            title: candidate.track.name,
+            artist: artistDisplay(from: candidate.track.artists),
+            message: ""
+        ).stableKey
+    }
+
+    private func isQualityTrackTitle(_ title: String) -> Bool {
+        let normalized = title.lowercased()
+        let blockedTerms = ["karaoke", "tribute to", "made famous by", "sound alike"]
+        return !blockedTerms.contains(where: normalized.contains)
     }
 
     private func orderedUniqueQueries(_ values: [(query: String, market: String)]) -> [(query: String, market: String)] {
@@ -504,6 +609,60 @@ final class SpotifyService {
         }
 
         return nil
+    }
+
+    private func responseContainsMatchingTrack(
+        _ data: Data,
+        title: String,
+        artist: String
+    ) -> Bool? {
+        guard let tracks = decodeTracks(from: data, context: "validation") else { return nil }
+        let expectedTitle = normalizedTitleForMatch(title)
+        let expectedArtists = normalizedArtistsForMatch(artist)
+        guard !expectedTitle.isEmpty, !expectedArtists.isEmpty else { return false }
+
+        return tracks.prefix(10).contains { track in
+            guard normalizedTitleForMatch(track.name) == expectedTitle else { return false }
+            return track.artists.contains { candidate in
+                expectedArtists.contains(normalizedMatchText(candidate.name))
+            }
+        }
+    }
+
+    private func normalizedTitleForMatch(_ value: String) -> String {
+        var title = value.replacingOccurrences(
+            of: "\\s*[\\(\\[].*?[\\)\\]]",
+            with: "",
+            options: .regularExpression
+        )
+        let lowered = title.lowercased()
+        let removableSuffixes = [" - remaster", " - radio edit", " - live", " - acoustic"]
+        if let suffix = removableSuffixes.first(where: lowered.contains),
+           let range = lowered.range(of: suffix) {
+            title = String(title[..<range.lowerBound])
+        }
+        return normalizedMatchText(title)
+    }
+
+    private func normalizedArtistsForMatch(_ value: String) -> Set<String> {
+        let separated = value.replacingOccurrences(
+            of: "(?i)\\s+(feat\\.?|ft\\.?|featuring|with)\\s+",
+            with: ",",
+            options: .regularExpression
+        )
+        var candidates = Set([normalizedMatchText(value), normalizedMatchText(separated)])
+        for part in separated.split(whereSeparator: { $0 == "," || $0 == "&" }) {
+            candidates.insert(normalizedMatchText(String(part)))
+        }
+        return candidates.filter { $0.count >= 3 }
+    }
+
+    private func normalizedMatchText(_ value: String) -> String {
+        value
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+            .lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .joined()
     }
 
     private func relaxedQuery(from query: String) -> String {

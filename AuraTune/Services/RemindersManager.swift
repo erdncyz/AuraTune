@@ -23,7 +23,8 @@ struct WaterSettings: Codable {
 
 // MARK: - Water Reward State
 struct WaterRewardState: Codable {
-    var coins: Int = 0
+    var spendableDrops: Int = 0
+    var lifetimeDropsEarned: Int = 0
     var todayDrankActions: Int = 0
     var todaySkippedActions: Int = 0
     var didAwardDailyGoalBonus: Bool = false
@@ -34,10 +35,43 @@ struct WaterRewardState: Codable {
     var lastGoalAchievedDate: Date?
     var ownedShopItems: [String] = []
     var lastActionDate: Date = Date.distantPast
+
+    enum CodingKeys: String, CodingKey {
+        case spendableDrops = "coins"
+        case lifetimeDropsEarned
+        case todayDrankActions
+        case todaySkippedActions
+        case didAwardDailyGoalBonus
+        case totalGoalCompletions
+        case totalDrankActions
+        case currentStreakDays
+        case bestStreakDays
+        case lastGoalAchievedDate
+        case ownedShopItems
+        case lastActionDate
+    }
+
+    init() {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        spendableDrops = try container.decodeIfPresent(Int.self, forKey: .spendableDrops) ?? 0
+        todayDrankActions = try container.decodeIfPresent(Int.self, forKey: .todayDrankActions) ?? 0
+        todaySkippedActions = try container.decodeIfPresent(Int.self, forKey: .todaySkippedActions) ?? 0
+        didAwardDailyGoalBonus = try container.decodeIfPresent(Bool.self, forKey: .didAwardDailyGoalBonus) ?? false
+        totalGoalCompletions = try container.decodeIfPresent(Int.self, forKey: .totalGoalCompletions) ?? 0
+        totalDrankActions = try container.decodeIfPresent(Int.self, forKey: .totalDrankActions) ?? 0
+        currentStreakDays = try container.decodeIfPresent(Int.self, forKey: .currentStreakDays) ?? 0
+        bestStreakDays = try container.decodeIfPresent(Int.self, forKey: .bestStreakDays) ?? 0
+        lastGoalAchievedDate = try container.decodeIfPresent(Date.self, forKey: .lastGoalAchievedDate)
+        ownedShopItems = try container.decodeIfPresent([String].self, forKey: .ownedShopItems) ?? []
+        lastActionDate = try container.decodeIfPresent(Date.self, forKey: .lastActionDate) ?? .distantPast
+        lifetimeDropsEarned = try container.decodeIfPresent(Int.self, forKey: .lifetimeDropsEarned)
+            ?? max(spendableDrops, totalDrankActions + (totalGoalCompletions * 5))
+    }
 }
 
 struct MedicineRewardState: Codable {
-    var coins: Int = 0
     var todayTookActions: Int = 0
     var todaySkippedActions: Int = 0
     var totalTookActions: Int = 0
@@ -95,52 +129,52 @@ enum WaterRewardLevel: String {
     case gold
     case diamond
 
-    var minCoins: Int {
+    var minLifetimeDrops: Int {
         switch self {
         case .bronze: return 0
-        case .silver: return 100
-        case .gold: return 250
-        case .diamond: return 500
+        case .silver: return 50
+        case .gold: return 150
+        case .diamond: return 350
         }
     }
 }
 
 enum WaterRewardShopItem: String, CaseIterable, Identifiable {
-    case oceanTheme
-    case zenAvatar
-    case aiMotivationPack
+    case smartSnooze = "oceanTheme"
+    case progressCoach = "zenAvatar"
+    case flexibleStreak = "aiMotivationPack"
 
     var id: String { rawValue }
 
     var cost: Int {
         switch self {
-        case .oceanTheme: return 60
-        case .zenAvatar: return 90
-        case .aiMotivationPack: return 130
+        case .smartSnooze: return 30
+        case .progressCoach: return 55
+        case .flexibleStreak: return 90
         }
     }
 
     var icon: String {
         switch self {
-        case .oceanTheme: return "paintpalette.fill"
-        case .zenAvatar: return "person.crop.circle.badge.star"
-        case .aiMotivationPack: return "sparkles"
+        case .smartSnooze: return "clock.arrow.circlepath"
+        case .progressCoach: return "chart.line.uptrend.xyaxis"
+        case .flexibleStreak: return "shield.lefthalf.filled"
         }
     }
 
     func title(isEnglish _: Bool) -> String {
         switch self {
-        case .oceanTheme: return LanguageManager.shared.localized("water.shop.item.ocean.title")
-        case .zenAvatar: return LanguageManager.shared.localized("water.shop.item.zen.title")
-        case .aiMotivationPack: return LanguageManager.shared.localized("water.shop.item.ai.title")
+        case .smartSnooze: return LanguageManager.shared.localized("water.shop.item.snooze.title")
+        case .progressCoach: return LanguageManager.shared.localized("water.shop.item.progress.title")
+        case .flexibleStreak: return LanguageManager.shared.localized("water.shop.item.streak.title")
         }
     }
 
     func subtitle(isEnglish _: Bool) -> String {
         switch self {
-        case .oceanTheme: return LanguageManager.shared.localized("water.shop.item.ocean.subtitle")
-        case .zenAvatar: return LanguageManager.shared.localized("water.shop.item.zen.subtitle")
-        case .aiMotivationPack: return LanguageManager.shared.localized("water.shop.item.ai.subtitle")
+        case .smartSnooze: return LanguageManager.shared.localized("water.shop.item.snooze.subtitle")
+        case .progressCoach: return LanguageManager.shared.localized("water.shop.item.progress.subtitle")
+        case .flexibleStreak: return LanguageManager.shared.localized("water.shop.item.streak.subtitle")
         }
     }
 }
@@ -175,11 +209,17 @@ final class RemindersManager: ObservableObject {
     private let motivationsKey = "aura_waterMotivations"
     private let rewardsKey = "aura_waterRewards"
     private let medicineRewardsKey = "aura_medicineRewards"
+    private let motivationRefreshSuccessKey = "aura_waterMotivationsLastSuccess"
+    private let motivationRefreshAttemptKey = "aura_waterMotivationsLastAttempt"
+    private let motivationPromptVersionKey = "aura_waterMotivationsPromptVersion"
+    private let currentMotivationPromptVersion = 2
     private let db = Firestore.firestore()
     private var cloudSyncTask: Task<Void, Never>?
+    private var motivationRefreshTask: Task<Void, Never>?
 
     private init() {
         loadAll()
+        syncWaterRewardFeatures()
         resetGlassesIfNewDay()
         restoreSchedulesIfNeeded()
         observeAuthChanges()
@@ -196,13 +236,7 @@ final class RemindersManager: ObservableObject {
         persistWater()
         hasSavedWaterSettings = true
         if settings.isEnabled {
-            NotificationManager.shared.scheduleWaterReminders(
-                startTime: settings.startTime,
-                endTime: settings.endTime,
-                intervalMinutes: settings.intervalMinutes,
-                dailyGoalLiters: settings.dailyGoalLiters,
-                messages: waterMotivations
-            )
+            scheduleCurrentWaterReminders()
         } else {
             NotificationManager.shared.cancelWaterReminders()
         }
@@ -210,25 +244,33 @@ final class RemindersManager: ObservableObject {
 
     func logGlass() {
         resetRewardsIfNewDay()
-        waterSettings.glassesToday = min(waterSettings.glassesToday + 1, waterSettings.dailyGoalGlasses + 5)
+        let maximumGlasses = waterSettings.dailyGoalGlasses + 5
+        guard waterSettings.glassesToday < maximumGlasses else { return }
+
+        let earnsDrop = waterSettings.glassesToday < waterSettings.dailyGoalGlasses
+        waterSettings.glassesToday += 1
         waterSettings.lastLogDate = Date()
+        waterRewards.todayDrankActions += 1
+        waterRewards.totalDrankActions += 1
         waterRewards.lastActionDate = Date()
+        if earnsDrop {
+            earnDrops(1)
+        }
         persistWater()
         evaluateDailyGoalRewardIfNeeded()
+        if waterSettings.isEnabled, hasUnlockedProgressCoach {
+            scheduleCurrentWaterReminders()
+        }
     }
 
     func handleWaterNotificationAction(didDrink: Bool) {
         resetRewardsIfNewDay()
 
         if didDrink {
-            waterRewards.todayDrankActions += 1
-            waterRewards.totalDrankActions += 1
-            addCoins(2)
             logGlass()
         } else {
             waterRewards.todaySkippedActions += 1
             waterRewards.lastActionDate = Date()
-            addCoins(-1)
             persistRewards()
         }
     }
@@ -239,11 +281,9 @@ final class RemindersManager: ObservableObject {
         if tookMedicine {
             medicineRewards.todayTookActions += 1
             medicineRewards.totalTookActions += 1
-            addMedicineCoins(1)
         } else {
             medicineRewards.todaySkippedActions += 1
             medicineRewards.totalSkippedActions += 1
-            addMedicineCoins(-1)
         }
 
         medicineRewards.lastActionDate = Date()
@@ -251,21 +291,21 @@ final class RemindersManager: ObservableObject {
     }
 
     var rewardLevel: WaterRewardLevel {
-        let coins = waterRewards.coins
-        if coins >= WaterRewardLevel.diamond.minCoins { return .diamond }
-        if coins >= WaterRewardLevel.gold.minCoins { return .gold }
-        if coins >= WaterRewardLevel.silver.minCoins { return .silver }
+        let lifetimeDrops = waterRewards.lifetimeDropsEarned
+        if lifetimeDrops >= WaterRewardLevel.diamond.minLifetimeDrops { return .diamond }
+        if lifetimeDrops >= WaterRewardLevel.gold.minLifetimeDrops { return .gold }
+        if lifetimeDrops >= WaterRewardLevel.silver.minLifetimeDrops { return .silver }
         return .bronze
     }
 
-    func coinsToNextLevel() -> Int? {
-        let coins = waterRewards.coins
+    func dropsToNextLevel() -> Int? {
+        let lifetimeDrops = waterRewards.lifetimeDropsEarned
         let ordered: [WaterRewardLevel] = [.bronze, .silver, .gold, .diamond]
         guard let currentIdx = ordered.firstIndex(of: rewardLevel), currentIdx < ordered.count - 1 else {
             return nil
         }
         let next = ordered[currentIdx + 1]
-        return max(0, next.minCoins - coins)
+        return max(0, next.minLifetimeDrops - lifetimeDrops)
     }
 
     func isShopItemOwned(_ item: WaterRewardShopItem) -> Bool {
@@ -273,27 +313,31 @@ final class RemindersManager: ObservableObject {
     }
 
     func canPurchaseShopItem(_ item: WaterRewardShopItem) -> Bool {
-        !isShopItemOwned(item) && waterRewards.coins >= item.cost
+        !isShopItemOwned(item) && waterRewards.spendableDrops >= item.cost
     }
 
-    var hasUnlockedOceanTheme: Bool {
-        isShopItemOwned(.oceanTheme)
+    var hasUnlockedSmartSnooze: Bool {
+        isShopItemOwned(.smartSnooze)
     }
 
-    var hasUnlockedZenAvatar: Bool {
-        isShopItemOwned(.zenAvatar)
+    var hasUnlockedProgressCoach: Bool {
+        isShopItemOwned(.progressCoach)
     }
 
-    var hasUnlockedAIMotivationPack: Bool {
-        isShopItemOwned(.aiMotivationPack)
+    var hasUnlockedFlexibleStreak: Bool {
+        isShopItemOwned(.flexibleStreak)
     }
 
     @discardableResult
     func purchaseShopItem(_ item: WaterRewardShopItem) -> Bool {
         guard canPurchaseShopItem(item) else { return false }
-        addCoins(-item.cost)
+        spendDrops(item.cost)
         waterRewards.ownedShopItems.append(item.rawValue)
         persistRewards()
+        syncWaterRewardFeatures()
+        if waterSettings.isEnabled {
+            scheduleCurrentWaterReminders()
+        }
         return true
     }
 
@@ -319,8 +363,24 @@ final class RemindersManager: ObservableObject {
 
     /// Fetches fresh AI water motivation messages and re-schedules notifications with them.
     func fetchAndRescheduleMotivations() async {
+        if let motivationRefreshTask {
+            await motivationRefreshTask.value
+            return
+        }
+
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.performWaterMotivationRefresh()
+        }
+        motivationRefreshTask = task
+        await task.value
+        motivationRefreshTask = nil
+    }
+
+    private func performWaterMotivationRefresh() async {
+        UserDefaults.standard.set(Date(), forKey: motivationRefreshAttemptKey)
         let lang = LanguageManager.shared.currentLanguage == "en" ? "English" : "Türkçe"
-        let desiredCount = hasUnlockedAIMotivationPack ? 20 : 12
+        let desiredCount = 18
         do {
             let msgs = try await GeminiService.shared.getWaterMotivationMessages(
                 count: desiredCount,
@@ -328,15 +388,14 @@ final class RemindersManager: ObservableObject {
                 dailyGoalLiters: waterSettings.dailyGoalLiters
             )
             waterMotivations = msgs
+            UserDefaults.standard.set(Date(), forKey: motivationRefreshSuccessKey)
+            UserDefaults.standard.set(
+                currentMotivationPromptVersion,
+                forKey: motivationPromptVersionKey
+            )
             persistMotivations()
             if waterSettings.isEnabled {
-                NotificationManager.shared.scheduleWaterReminders(
-                    startTime: waterSettings.startTime,
-                    endTime: waterSettings.endTime,
-                    intervalMinutes: waterSettings.intervalMinutes,
-                    dailyGoalLiters: waterSettings.dailyGoalLiters,
-                    messages: msgs
-                )
+                scheduleCurrentWaterReminders()
             }
         } catch {
             print("[RemindersManager] Water motivations fetch failed: \(error)")
@@ -379,13 +438,8 @@ final class RemindersManager: ObservableObject {
 
     func refreshAllReminderSchedules() {
         if waterSettings.isEnabled {
-            NotificationManager.shared.scheduleWaterReminders(
-                startTime: waterSettings.startTime,
-                endTime: waterSettings.endTime,
-                intervalMinutes: waterSettings.intervalMinutes,
-                dailyGoalLiters: waterSettings.dailyGoalLiters,
-                messages: waterMotivations
-            )
+            scheduleCurrentWaterReminders()
+            refreshWaterMotivationsIfNeeded()
         } else {
             NotificationManager.shared.cancelWaterReminders()
         }
@@ -529,6 +583,7 @@ final class RemindersManager: ObservableObject {
         waterMotivations = state.waterMotivations
         waterRewards = state.waterRewards
         medicineRewards = state.medicineRewards
+        syncWaterRewardFeatures()
 
         // Persist locally as cache without triggering additional network writes.
         if let waterData = try? JSONEncoder().encode(waterSettings) {
@@ -576,12 +631,12 @@ final class RemindersManager: ObservableObject {
            !waterRewards.didAwardDailyGoalBonus {
             waterRewards.didAwardDailyGoalBonus = true
             waterRewards.totalGoalCompletions += 1
-            addCoins(10)
+            earnDrops(5)
             updateGoalStreak(date: Date())
 
-            // Weekly streak reward: +20 coin every 7 consecutive days.
+            // Reward a consistent week without making missed reminders punitive.
             if waterRewards.currentStreakDays > 0 && waterRewards.currentStreakDays % 7 == 0 {
-                addCoins(20)
+                earnDrops(15)
             }
         }
 
@@ -600,6 +655,10 @@ final class RemindersManager: ObservableObject {
             if let yesterday = calendar.date(byAdding: .day, value: -1, to: today),
                calendar.isDate(last, inSameDayAs: yesterday) {
                 waterRewards.currentStreakDays += 1
+            } else if hasUnlockedFlexibleStreak,
+                      let twoDaysAgo = calendar.date(byAdding: .day, value: -2, to: today),
+                      calendar.isDate(last, inSameDayAs: twoDaysAgo) {
+                waterRewards.currentStreakDays += 1
             } else {
                 waterRewards.currentStreakDays = 1
             }
@@ -611,23 +670,60 @@ final class RemindersManager: ObservableObject {
         waterRewards.bestStreakDays = max(waterRewards.bestStreakDays, waterRewards.currentStreakDays)
     }
 
-    private func addCoins(_ delta: Int) {
-        waterRewards.coins = max(0, waterRewards.coins + delta)
+    private func earnDrops(_ amount: Int) {
+        guard amount > 0 else { return }
+        waterRewards.spendableDrops += amount
+        waterRewards.lifetimeDropsEarned += amount
     }
 
-    private func addMedicineCoins(_ delta: Int) {
-        medicineRewards.coins = max(0, medicineRewards.coins + delta)
+    private func spendDrops(_ amount: Int) {
+        guard amount > 0 else { return }
+        waterRewards.spendableDrops = max(0, waterRewards.spendableDrops - amount)
+    }
+
+    private func syncWaterRewardFeatures() {
+        NotificationManager.shared.configureWaterRewardFeatures(
+            snoozeUnlocked: hasUnlockedSmartSnooze
+        )
+    }
+
+    private func scheduleCurrentWaterReminders() {
+        NotificationManager.shared.scheduleWaterReminders(
+            startTime: waterSettings.startTime,
+            endTime: waterSettings.endTime,
+            intervalMinutes: waterSettings.intervalMinutes,
+            dailyGoalLiters: waterSettings.dailyGoalLiters,
+            messages: waterMotivations,
+            glassesToday: waterSettings.glassesToday,
+            showsGoalProgress: hasUnlockedProgressCoach
+        )
+    }
+
+    private func refreshWaterMotivationsIfNeeded() {
+        guard motivationRefreshTask == nil else { return }
+
+        let defaults = UserDefaults.standard
+        let now = Date()
+        let lastSuccess = defaults.object(forKey: motivationRefreshSuccessKey) as? Date
+        let lastAttempt = defaults.object(forKey: motivationRefreshAttemptKey) as? Date
+        let needsMessages = waterMotivations.count < 6
+        let needsQualityUpgrade = defaults.integer(forKey: motivationPromptVersionKey)
+            < currentMotivationPromptVersion
+        let isWeeklyRefreshDue = lastSuccess.map {
+            now.timeIntervalSince($0) >= 7 * 24 * 60 * 60
+        } ?? true
+        let canRetry = lastAttempt.map {
+            now.timeIntervalSince($0) >= 6 * 60 * 60
+        } ?? true
+
+        guard canRetry, needsMessages || needsQualityUpgrade || isWeeklyRefreshDue else { return }
+        Task { await fetchAndRescheduleMotivations() }
     }
 
     private func restoreSchedulesIfNeeded() {
         if hasSavedWaterSettings && waterSettings.isEnabled {
-            NotificationManager.shared.scheduleWaterReminders(
-                startTime: waterSettings.startTime,
-                endTime: waterSettings.endTime,
-                intervalMinutes: waterSettings.intervalMinutes,
-                dailyGoalLiters: waterSettings.dailyGoalLiters,
-                messages: waterMotivations
-            )
+            scheduleCurrentWaterReminders()
+            refreshWaterMotivationsIfNeeded()
         }
 
         for medicine in medicines where medicine.isEnabled {

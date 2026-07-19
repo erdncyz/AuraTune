@@ -19,6 +19,7 @@ struct AuraTuneApp: App {
     init() {
         // Configure Firebase
         FirebaseApp.configure()
+        _ = NotificationManager.shared
         
         // Keep system tab bars aligned with the app when presented in sheets.
         let tabAppearance = UITabBarAppearance()
@@ -41,8 +42,11 @@ struct AuraTuneApp: App {
                 .environmentObject(remindersManager)
                 .preferredColorScheme(.light)
                 .onChange(of: scenePhase) { _, phase in
-                    if phase == .background {
+                    if phase == .active || phase == .background {
                         remindersManager.refreshAllReminderSchedules()
+                        if let profile = FirebaseManager.shared.userProfile {
+                            NotificationManager.shared.ensureDailyMusicNotification(for: profile)
+                        }
                     }
                 }
         }

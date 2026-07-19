@@ -108,39 +108,40 @@
 "auth.error.weakPassword" = "Password must be at least 6 characters.";
 "auth.error.network" = "No internet connection.";
 "auth.error.reauthRequired" = "Please sign in again to continue.";
+"auth.error.simulatorKeychain" = "Simulator cannot access secure keychain for this Firebase sign-in. Try resetting the simulator or test on a real device.";
 
-"water.rewards.title" = "Hydration Rewards";
-"water.rewards.coinUnit" = "coins";
-"water.rewards.action.drank" = "I Drank";
-"water.rewards.action.skipped" = "Not Yet";
-"water.rewards.dailyGoalBonus" = "Daily goal bonus: +10 coins";
+"water.rewards.title" = "Hydration Rhythm";
+"water.rewards.dropUnit" = "drops";
+"water.rewards.action.drank" = "Glasses logged";
+"water.rewards.action.skipped" = "Not now";
+"water.rewards.dailyGoalBonus" = "+5 drops when the daily goal is complete";
 "water.rewards.currentStreakFormat" = "Current streak: %d days";
 "water.rewards.bestStreakFormat" = "Best: %d";
-"water.rewards.toNextLevelFormat" = "%d coins to next level";
-"water.rewards.streakBonus" = "7-day streak bonus: +20 coins";
+"water.rewards.toNextLevelFormat" = "Earn %d more drops for the next level";
+"water.rewards.streakBonus" = "+15 drops for every 7-day streak";
+"water.rewards.lifetimeFormat" = "Lifetime earned: %d drops";
+"water.rewards.levelRule" = "Your level follows lifetime earnings and never drops when you spend.";
 
 "water.level.bronze" = "Bronze";
 "water.level.silver" = "Silver";
 "water.level.gold" = "Gold";
 "water.level.diamond" = "Diamond";
 
-"water.shop.title" = "Coin Shop";
-"water.shop.owned" = "Owned";
+"water.shop.title" = "Drop Shop";
+"water.shop.owned" = "Active";
 "water.shop.purchasedFormat" = "Purchased: %@";
-"water.shop.effect.ocean" = "Active: Ocean visuals enabled";
-"water.shop.effect.zen" = "Active: Profile zen badge enabled";
-"water.shop.effect.ai" = "Active: Extended AI message pool";
-"water.shop.effect.zenBadge" = "Zen Badge Active";
+"water.shop.effect.snooze" = "Active: Snooze water alerts for 15 minutes";
+"water.shop.effect.progress" = "Active: Remaining glasses shown in alerts";
+"water.shop.effect.streak" = "Active: One missed day keeps your streak";
 
-"water.shop.item.ocean.title" = "Ocean Theme";
-"water.shop.item.ocean.subtitle" = "Unlock calming blue style";
-"water.shop.item.zen.title" = "Zen Avatar";
-"water.shop.item.zen.subtitle" = "Profile badge upgrade";
-"water.shop.item.ai.title" = "AI Motivation Pack";
-"water.shop.item.ai.subtitle" = "Extra motivational messages";
+"water.shop.item.snooze.title" = "Smart Snooze";
+"water.shop.item.snooze.subtitle" = "Snooze a water alert for 15 minutes";
+"water.shop.item.progress.title" = "Goal Coach";
+"water.shop.item.progress.subtitle" = "See remaining glasses in each alert";
+"water.shop.item.streak.title" = "Flexible Streak";
+"water.shop.item.streak.subtitle" = "Keep your streak through one missed day";
 
-"medicine.rewards.title" = "Medicine Rewards";
-"medicine.rewards.coinUnit" = "coins";
+"medicine.rewards.title" = "Today's Medicine Log";
 "medicine.rewards.action.took" = "I Took It";
 "medicine.rewards.action.skipped" = "Skipped";
-"medicine.rewards.caption" = "Earn medicine coin rewards from notification actions";
+"medicine.rewards.caption" = "This section records actions only and never changes your medication plan.";

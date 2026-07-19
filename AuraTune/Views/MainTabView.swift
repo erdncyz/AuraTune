@@ -85,10 +85,16 @@ struct MainTabView: View {
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: notificationManager.foregroundPrompt?.id)
         .onAppear {
             checkNotificationPermission()
+            notificationManager.refreshDailyMusicScheduleStatus()
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 checkNotificationPermission()
+            }
+        }
+        .onChange(of: languageManager.currentLanguage) { _, _ in
+            if let profile = FirebaseManager.shared.userProfile {
+                notificationManager.ensureDailyMusicNotification(for: profile)
             }
         }
     }
@@ -97,6 +103,7 @@ struct MainTabView: View {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             DispatchQueue.main.async {
                 notificationAuthorizationStatus = settings.authorizationStatus
+                notificationManager.refreshDailyMusicScheduleStatus()
                 withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                     showNotificationBanner = (settings.authorizationStatus == .denied || settings.authorizationStatus == .notDetermined)
                 }
@@ -215,11 +222,20 @@ struct MainTabView: View {
                         notificationManager.handleForegroundWaterAction(didDrink: true)
                     }
 
-                    quickActionButton(
-                        title: isEnglish ? "Not Yet" : "İçmedim",
-                        color: .auraDanger
-                    ) {
-                        notificationManager.handleForegroundWaterAction(didDrink: false)
+                    if remindersManager.hasUnlockedSmartSnooze {
+                        quickActionButton(
+                            title: isEnglish ? "In 15 Min" : "15 Dk Sonra",
+                            color: .auraTertiary
+                        ) {
+                            notificationManager.snoozeForegroundWaterReminder()
+                        }
+                    } else {
+                        quickActionButton(
+                            title: isEnglish ? "Not Now" : "Şimdi Değil",
+                            color: .auraTextSecondary
+                        ) {
+                            notificationManager.handleForegroundWaterAction(didDrink: false)
+                        }
                     }
                 } else {
                     quickActionButton(

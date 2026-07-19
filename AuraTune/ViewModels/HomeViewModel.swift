@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import FirebaseAuth
 
 @MainActor
 class HomeViewModel: ObservableObject {
@@ -11,9 +12,13 @@ class HomeViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var mixErrorMessage: String?
 
-    private let cacheKey = "dailySuggestion"
-    private let mixCacheKey = "dailyMix"
-    private let cacheDateKey = "dailySuggestionDate"
+    private var cacheNamespace: String {
+        FirebaseManager.shared.currentUser?.uid ?? "signed-out"
+    }
+
+    private var cacheKey: String { "dailySuggestion.\(cacheNamespace)" }
+    private var mixCacheKey: String { "dailyMix.\(cacheNamespace)" }
+    private var cacheDateKey: String { "dailySuggestionDate.\(cacheNamespace)" }
 
     init() {
         loadCachedSuggestionIfToday()
@@ -95,7 +100,6 @@ class HomeViewModel: ObservableObject {
     func fetchDailySuggestion(profile: Profile, refreshMix: Bool = false) async {
         debugLog("Starting daily suggestion. platform=\(profile.platform), genres=\(profile.genres.count), songLanguage=\(profile.songLanguage.rawValue)")
         isLoadingSuggestion = true
-        dailySuggestion = nil
         if refreshMix {
             dailyMix = []
             debugLog("Daily mix cleared because refreshMix=true")
@@ -152,10 +156,9 @@ class HomeViewModel: ObservableObject {
             debugLog("Daily suggestion added to history")
 
             // Schedule notification at the user's wake-up time
-            NotificationManager.shared.scheduleMorningNotification(
-                at: profile.wakeUpTime,
-                suggestion: finalSuggestion,
-                platform: profile.platform
+            NotificationManager.shared.ensureDailyMusicNotification(
+                for: profile,
+                suggestion: finalSuggestion
             )
 
             if refreshMix || dailyMix.isEmpty {
@@ -167,7 +170,9 @@ class HomeViewModel: ObservableObject {
             
         } catch {
             debugLog("Daily suggestion failed entirely. error=\(error.localizedDescription)")
-            self.errorMessage = "Öneri alınamadı: \(error.localizedDescription)"
+            self.errorMessage = LanguageManager.shared.currentLanguage == "en"
+                ? "Could not get a new suggestion: \(error.localizedDescription)"
+                : "Yeni öneri alınamadı: \(error.localizedDescription)"
         }
         isLoadingSuggestion = false
         debugLog("Daily suggestion flow finished")

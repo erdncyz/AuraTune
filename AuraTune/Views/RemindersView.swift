@@ -12,7 +12,7 @@ struct RemindersView: View {
 
     private var selectedTabColor: Color {
         if selectedTab == .water {
-            return remindersManager.hasUnlockedOceanTheme ? Color(hex: "246B72") : .auraTertiary
+            return .auraTertiary
         }
         return .auraPrimary
     }
@@ -200,12 +200,12 @@ struct WaterReminderSection: View {
         M3Card {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Label(loc("water.rewards.title"), systemImage: "bitcoinsign.circle.fill")
+                    Label(loc("water.rewards.title"), systemImage: "drop.circle.fill")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.auraOnSurface)
                     Spacer()
                     levelBadge
-                    Text("\(remindersManager.waterRewards.coins) \(loc("water.rewards.coinUnit"))")
+                    Text("\(remindersManager.waterRewards.spendableDrops) \(loc("water.rewards.dropUnit"))")
                         .font(.system(size: 16, weight: .heavy))
                         .foregroundColor(.auraSecondary)
                 }
@@ -213,16 +213,16 @@ struct WaterReminderSection: View {
                 HStack(spacing: 12) {
                     rewardPill(
                         title: loc("water.rewards.action.drank"),
-                        value: "+2",
+                        value: "+1",
                         count: remindersManager.waterRewards.todayDrankActions,
                         color: .auraSuccess
                     )
 
                     rewardPill(
                         title: loc("water.rewards.action.skipped"),
-                        value: "-1",
+                        value: "0",
                         count: remindersManager.waterRewards.todaySkippedActions,
-                        color: .auraDanger
+                        color: .auraTextSecondary
                     )
                 }
 
@@ -240,7 +240,7 @@ struct WaterReminderSection: View {
                         .foregroundColor(.auraOnSurface.opacity(0.6))
                 }
 
-                if let needed = remindersManager.coinsToNextLevel() {
+                if let needed = remindersManager.dropsToNextLevel() {
                     Text(String(format: loc("water.rewards.toNextLevelFormat"), needed))
                         .font(.system(size: 12, weight: .medium))
                         .foregroundColor(.auraOnSurface.opacity(0.55))
@@ -249,6 +249,17 @@ struct WaterReminderSection: View {
                 Text(loc("water.rewards.streakBonus"))
                     .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.auraPrimary)
+
+                Text(String(
+                    format: loc("water.rewards.lifetimeFormat"),
+                    remindersManager.waterRewards.lifetimeDropsEarned
+                ))
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(.auraTextSecondary)
+
+                Text(loc("water.rewards.levelRule"))
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundColor(.auraTextSecondary)
             }
         }
     }
@@ -290,7 +301,7 @@ struct WaterReminderSection: View {
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.auraOnSurface)
                     Spacer()
-                    Text("\(remindersManager.waterRewards.ownedShopItems.count) / \(WaterRewardShopItem.allCases.count)")
+                    Text("\(WaterRewardShopItem.allCases.filter(remindersManager.isShopItemOwned).count) / \(WaterRewardShopItem.allCases.count)")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(.auraOnSurface.opacity(0.6))
                 }
@@ -350,7 +361,7 @@ struct WaterReminderSection: View {
                         }
                     }
                 } label: {
-                    Text("\(item.cost) \(loc("water.rewards.coinUnit"))")
+                    Text("\(item.cost) \(loc("water.rewards.dropUnit"))")
                         .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 10)
@@ -369,12 +380,12 @@ struct WaterReminderSection: View {
     private func effectSubtitle(for item: WaterRewardShopItem) -> String {
         if remindersManager.isShopItemOwned(item) {
             switch item {
-            case .oceanTheme:
-                return loc("water.shop.effect.ocean")
-            case .zenAvatar:
-                return loc("water.shop.effect.zen")
-            case .aiMotivationPack:
-                return loc("water.shop.effect.ai")
+            case .smartSnooze:
+                return loc("water.shop.effect.snooze")
+            case .progressCoach:
+                return loc("water.shop.effect.progress")
+            case .flexibleStreak:
+                return loc("water.shop.effect.streak")
             }
         }
 
@@ -749,23 +760,17 @@ struct MedicineReminderSection: View {
                     Label(loc("medicine.rewards.title"), systemImage: "cross.case.fill")
                         .font(.system(size: 16, weight: .bold))
                         .foregroundColor(.auraOnSurface)
-                    Spacer()
-                    Text("\(remindersManager.medicineRewards.coins) \(loc("medicine.rewards.coinUnit"))")
-                        .font(.system(size: 16, weight: .heavy))
-                        .foregroundColor(.auraSecondary)
                 }
 
                 HStack(spacing: 12) {
                     medicineRewardPill(
                         title: loc("medicine.rewards.action.took"),
-                        value: "+1",
                         count: remindersManager.medicineRewards.todayTookActions,
                         color: .auraSuccess
                     )
 
                     medicineRewardPill(
                         title: loc("medicine.rewards.action.skipped"),
-                        value: "-1",
                         count: remindersManager.medicineRewards.todaySkippedActions,
                         color: .auraDanger
                     )
@@ -778,19 +783,14 @@ struct MedicineReminderSection: View {
         }
     }
 
-    private func medicineRewardPill(title: String, value: String, count: Int, color: Color) -> some View {
+    private func medicineRewardPill(title: String, count: Int, color: Color) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(.auraOnSurface.opacity(0.6))
-            HStack(spacing: 6) {
-                Text(value)
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(color)
-                Text("x\(count)")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(.auraOnSurface)
-            }
+            Text("\(count)")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(color)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)

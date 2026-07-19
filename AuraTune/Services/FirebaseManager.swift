@@ -92,6 +92,9 @@ class FirebaseManager: ObservableObject {
 
     func signOut() throws {
         do {
+            NotificationManager.shared.cancelDailyMusicNotification(
+                forUserID: currentUser?.uid
+            )
             try Auth.auth().signOut()
             DispatchQueue.main.async {
                 self.currentUser = nil
@@ -149,6 +152,7 @@ class FirebaseManager: ObservableObject {
 
         try await db.collection("profiles").document(userId).delete()
         try await user.delete()
+        NotificationManager.shared.cancelDailyMusicNotification(forUserID: userId)
 
         DispatchQueue.main.async {
             self.currentUser = nil
@@ -178,6 +182,7 @@ class FirebaseManager: ObservableObject {
                 let profile = try Firestore.Decoder().decode(Profile.self, from: data)
                 DispatchQueue.main.async {
                     self.userProfile = profile
+                    NotificationManager.shared.ensureDailyMusicNotification(for: profile)
                 }
             } else {
                 DispatchQueue.main.async {
@@ -202,5 +207,6 @@ class FirebaseManager: ObservableObject {
         let data = try Firestore.Encoder().encode(updatedProfile)
         try await db.collection("profiles").document(userId).setData(data, merge: true)
         userProfile = updatedProfile
+        NotificationManager.shared.ensureDailyMusicNotification(for: updatedProfile)
     }
 }

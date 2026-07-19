@@ -84,6 +84,13 @@ struct HomeView: View {
         }
         .preferredColorScheme(.light)
         .onAppear {
+            if let profile = firebaseManager.userProfile {
+                NotificationManager.shared.ensureDailyMusicNotification(
+                    for: profile,
+                    suggestion: viewModel.dailySuggestion
+                )
+            }
+
             if viewModel.dailySuggestion == nil, !viewModel.isLoadingSuggestion {
                 fetchSuggestion()
             } else {

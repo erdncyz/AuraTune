@@ -1,5 +1,6 @@
 import SwiftUI
 import FirebaseAuth
+import UserNotifications
 
 struct SettingsView: View {
     @EnvironmentObject var firebaseManager: FirebaseManager
@@ -8,12 +9,14 @@ struct SettingsView: View {
     @EnvironmentObject var favoritesManager: FavoritesManager
     @EnvironmentObject var historyManager: HistoryManager
     @StateObject private var viewModel = SettingsViewModel()
+    @StateObject private var notificationManager = NotificationManager.shared
     @FocusState private var isNameFocused: Bool
     @State private var showSavedToast = false
     @State private var showAbout = false
     @State private var authActionError: String?
     @State private var showDeleteConfirmation = false
     @State private var isDeletingAccount = false
+    @State private var notificationTestMessage: String?
 
     private var isEnglish: Bool { languageManager.currentLanguage == "en" }
     private let genreColumns = [GridItem(.adaptive(minimum: 92), spacing: 8)]
@@ -25,8 +28,8 @@ struct SettingsView: View {
                     eyebrow: isEnglish ? "Profile & preferences" : "Profil ve tercihler",
                     title: viewModel.userName.isEmpty ? "AuraTune" : viewModel.userName,
                     subtitle: firebaseManager.currentUser?.email,
-                    icon: remindersManager.hasUnlockedZenAvatar ? "sparkles" : "person.fill",
-                    accent: remindersManager.hasUnlockedZenAvatar ? .auraSecondary : .auraPrimary
+                    icon: "person.fill",
+                    accent: .auraPrimary
                 )
             } content: {
                 ScrollView(showsIndicators: false) {
@@ -34,6 +37,7 @@ struct SettingsView: View {
                         profileSnapshot
                         preferenceSection
                         personalSection
+                        dailyMusicNotificationSection
                         genreSection
                         platformSection
                         aboutRow
@@ -79,6 +83,7 @@ struct SettingsView: View {
                 if let profile = firebaseManager.userProfile {
                     viewModel.loadProfile(profile)
                 }
+                notificationManager.refreshDailyMusicScheduleStatus()
             }
             .alert(isEnglish ? "Delete account?" : "Hesap silinsin mi?", isPresented: $showDeleteConfirmation) {
                 Button(isEnglish ? "Cancel" : "Vazgeç", role: .cancel) {}
@@ -286,6 +291,190 @@ struct SettingsView: View {
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
+            }
+        }
+    }
+
+    private var dailyMusicNotificationSection: some View {
+        AuraSectionCard(
+            title: isEnglish ? "Daily music notification" : "Günlük müzik bildirimi",
+            subtitle: String(
+                format: isEnglish ? "Every day at %@" : "Her gün %@ saatinde",
+                notificationTimeText
+            ),
+            icon: "bell.badge.fill",
+            tint: notificationStatusColor
+        ) {
+            VStack(spacing: 12) {
+                HStack(spacing: 10) {
+                    Image(systemName: notificationStatusIcon)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(notificationStatusColor)
+                        .frame(width: 36, height: 36)
+                        .background(notificationStatusColor.opacity(0.1))
+                        .clipShape(RoundedRectangle(cornerRadius: AuraMetrics.cardRadius, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(notificationStatusTitle)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.auraOnSurface)
+                        Text(notificationStatusDetail)
+                            .font(.caption)
+                            .foregroundStyle(Color.auraTextSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 0)
+                }
+
+                if isDailyMusicScheduleCurrent {
+                    Button(action: sendTestNotification) {
+                        Label(
+                            isEnglish ? "Send test in 5 seconds" : "5 saniye içinde test gönder",
+                            systemImage: "paperplane.fill"
+                        )
+                    }
+                    .buttonStyle(M3TonalButton())
+                } else if notificationManager.dailyMusicScheduleStatus == .scheduled {
+                    Button(action: saveChanges) {
+                        Label(
+                            isEnglish ? "Save new notification time" : "Yeni bildirim saatini kaydet",
+                            systemImage: "clock.badge.checkmark.fill"
+                        )
+                    }
+                    .buttonStyle(M3FilledButton(tint: .auraWarning))
+                } else {
+                    Button(action: repairDailyMusicNotification) {
+                        Label(
+                            isEnglish ? "Enable and repair" : "Etkinleştir ve düzelt",
+                            systemImage: "wrench.and.screwdriver.fill"
+                        )
+                    }
+                    .buttonStyle(M3FilledButton())
+                }
+
+                if let notificationTestMessage {
+                    Text(notificationTestMessage)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(notificationStatusColor)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .transition(.opacity)
+                }
+            }
+        }
+    }
+
+    private var notificationTimeText: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: languageManager.currentLanguage)
+        formatter.timeStyle = .short
+        return formatter.string(from: scheduledNotificationDate ?? viewModel.wakeUpTime)
+    }
+
+    private var scheduledNotificationDate: Date? {
+        guard let scheduled = notificationManager.dailyMusicScheduledComponents,
+              let hour = scheduled.hour,
+              let minute = scheduled.minute else { return nil }
+        return Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: Date())
+    }
+
+    private var isDailyMusicScheduleCurrent: Bool {
+        guard notificationManager.dailyMusicScheduleStatus == .scheduled,
+              let scheduled = notificationManager.dailyMusicScheduledComponents else { return false }
+        let draft = Calendar.current.dateComponents([.hour, .minute], from: viewModel.wakeUpTime)
+        return scheduled.hour == draft.hour && scheduled.minute == draft.minute
+    }
+
+    private var notificationStatusTitle: String {
+        switch notificationManager.dailyMusicScheduleStatus {
+        case .checking:
+            return isEnglish ? "Checking schedule" : "Plan kontrol ediliyor"
+        case .scheduled:
+            return isDailyMusicScheduleCurrent
+                ? (isEnglish ? "Daily schedule is active" : "Günlük plan aktif")
+                : (isEnglish ? "New time is not saved" : "Yeni saat henüz kaydedilmedi")
+        case .permissionRequired:
+            return isEnglish ? "Notification permission required" : "Bildirim izni gerekli"
+        case .missing:
+            return isEnglish ? "Daily schedule is missing" : "Günlük plan eksik"
+        case .failed:
+            return isEnglish ? "Schedule could not be created" : "Plan oluşturulamadı"
+        }
+    }
+
+    private var notificationStatusDetail: String {
+        switch notificationManager.dailyMusicScheduleStatus {
+        case .scheduled:
+            return isDailyMusicScheduleCurrent
+                ? (isEnglish
+                    ? "AuraTune will keep one repeating notification scheduled."
+                    : "AuraTune tekrar eden tek bildirimi sürekli planlı tutar.")
+                : (isEnglish
+                    ? "Save changes to move the active notification to the new time."
+                    : "Aktif bildirimi yeni saate taşımak için değişiklikleri kaydet.")
+        case .permissionRequired:
+            return isEnglish
+                ? "Allow alerts so the daily song can reach you."
+                : "Günün şarkısının ulaşması için bildirimlere izin ver."
+        case .checking:
+            return isEnglish ? "Reading the system notification plan." : "Sistem bildirim planı okunuyor."
+        case .missing, .failed:
+            return isEnglish
+                ? "Repair the schedule without losing your latest song."
+                : "Son şarkını kaybetmeden planı yeniden kur."
+        }
+    }
+
+    private var notificationStatusIcon: String {
+        switch notificationManager.dailyMusicScheduleStatus {
+        case .scheduled: return isDailyMusicScheduleCurrent ? "checkmark.circle.fill" : "clock.badge.exclamationmark.fill"
+        case .checking: return "clock.fill"
+        case .permissionRequired: return "bell.slash.fill"
+        case .missing, .failed: return "exclamationmark.triangle.fill"
+        }
+    }
+
+    private var notificationStatusColor: Color {
+        switch notificationManager.dailyMusicScheduleStatus {
+        case .scheduled: return isDailyMusicScheduleCurrent ? .auraSuccess : .auraWarning
+        case .checking: return .auraSecondary
+        case .permissionRequired, .missing, .failed: return .auraDanger
+        }
+    }
+
+    private var draftProfile: Profile {
+        Profile(
+            name: viewModel.userName,
+            wakeUpTime: viewModel.wakeUpTime,
+            genres: Array(viewModel.selectedGenres),
+            platform: viewModel.selectedPlatform,
+            songLanguage: viewModel.selectedSongLanguage
+        )
+    }
+
+    private func repairDailyMusicNotification() {
+        notificationTestMessage = nil
+        notificationManager.requestAuthorization { granted in
+            if granted {
+                notificationManager.ensureDailyMusicNotification(for: draftProfile)
+                return
+            }
+
+            notificationTestMessage = isEnglish
+                ? "Enable notifications in Settings, then try again."
+                : "Bildirimleri Ayarlar'dan açıp tekrar dene."
+            if let url = URL(string: UIApplication.openNotificationSettingsURLString) {
+                UIApplication.shared.open(url)
+            }
+        }
+    }
+
+    private func sendTestNotification() {
+        notificationTestMessage = nil
+        notificationManager.scheduleDailyMusicTest(for: draftProfile) { success in
+            withAnimation {
+                notificationTestMessage = success
+                    ? (isEnglish ? "Test notification will arrive in 5 seconds." : "Test bildirimi 5 saniye içinde gelecek.")
+                    : (isEnglish ? "Test could not be scheduled." : "Test bildirimi planlanamadı.")
             }
         }
     }

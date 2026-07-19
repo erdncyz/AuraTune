@@ -108,39 +108,40 @@
 "auth.error.weakPassword" = "Şifre en az 6 karakter olmalı.";
 "auth.error.network" = "İnternet bağlantısı yok.";
 "auth.error.reauthRequired" = "Bu işlem için tekrar giriş yapman gerekiyor.";
+"auth.error.simulatorKeychain" = "Simülatör bu Firebase girişinde güvenli Keychain'e erişemiyor. Simülatörü sıfırlayıp tekrar deneyin veya gerçek cihazda test edin.";
 
-"water.rewards.title" = "Su Ödülleri";
-"water.rewards.coinUnit" = "jeton";
-"water.rewards.action.drank" = "İçtim";
-"water.rewards.action.skipped" = "İçmedim";
-"water.rewards.dailyGoalBonus" = "Günlük hedef bonusu: +10 jeton";
+"water.rewards.title" = "Su Ritmi";
+"water.rewards.dropUnit" = "damla";
+"water.rewards.action.drank" = "Kaydedilen bardak";
+"water.rewards.action.skipped" = "Şimdi değil";
+"water.rewards.dailyGoalBonus" = "Günlük hedef tamamlanınca +5 damla";
 "water.rewards.currentStreakFormat" = "Mevcut seri: %d gün";
 "water.rewards.bestStreakFormat" = "En iyi seri: %d gün";
-"water.rewards.toNextLevelFormat" = "Sonraki seviye için %d jeton";
-"water.rewards.streakBonus" = "7 günlük seri bonusu: +20 jeton";
+"water.rewards.toNextLevelFormat" = "Sonraki seviye için %d damla daha kazan";
+"water.rewards.streakBonus" = "Her 7 günlük seride +15 damla";
+"water.rewards.lifetimeFormat" = "Toplam kazanılan: %d damla";
+"water.rewards.levelRule" = "Seviyen toplam kazancına göre ilerler; harcayınca düşmez.";
 
 "water.level.bronze" = "Bronz";
 "water.level.silver" = "Gümüş";
 "water.level.gold" = "Altın";
 "water.level.diamond" = "Elmas";
 
-"water.shop.title" = "Jeton Mağazası";
-"water.shop.owned" = "Alındı";
+"water.shop.title" = "Damla Mağazası";
+"water.shop.owned" = "Etkin";
 "water.shop.purchasedFormat" = "Satın alındı: %@";
-"water.shop.effect.ocean" = "Aktif: Okyanus görünümü açık";
-"water.shop.effect.zen" = "Aktif: Profil zen rozeti açık";
-"water.shop.effect.ai" = "Aktif: Genişletilmiş AI mesaj havuzu";
-"water.shop.effect.zenBadge" = "Zen Rozeti Aktif";
+"water.shop.effect.snooze" = "Etkin: Bildirimlerde 15 dakika ertele";
+"water.shop.effect.progress" = "Etkin: Bildirimde kalan bardak sayısı";
+"water.shop.effect.streak" = "Etkin: Bir günlük ara seriyi bozmaz";
 
-"water.shop.item.ocean.title" = "Okyanus Teması";
-"water.shop.item.ocean.subtitle" = "Sakin mavi görünümü etkinleştir";
-"water.shop.item.zen.title" = "Zen Avatar";
-"water.shop.item.zen.subtitle" = "Profil rozetini geliştir";
-"water.shop.item.ai.title" = "AI Motivasyon Paketi";
-"water.shop.item.ai.subtitle" = "Ek motivasyon mesajları";
+"water.shop.item.snooze.title" = "Akıllı Erteleme";
+"water.shop.item.snooze.subtitle" = "Su bildirimini 15 dakika ertele";
+"water.shop.item.progress.title" = "Hedef Koçu";
+"water.shop.item.progress.subtitle" = "Bildirimde hedefe kalan bardakları gör";
+"water.shop.item.streak.title" = "Esnek Seri";
+"water.shop.item.streak.subtitle" = "Bir günlük arada serini koru";
 
-"medicine.rewards.title" = "İlaç Ödülleri";
-"medicine.rewards.coinUnit" = "jeton";
+"medicine.rewards.title" = "Bugünkü İlaç Takibi";
 "medicine.rewards.action.took" = "Aldım";
 "medicine.rewards.action.skipped" = "Atladım";
-"medicine.rewards.caption" = "Bildirim eylemleriyle ilaç jetonu kazan";
+"medicine.rewards.caption" = "Bu alan yalnızca kayıt tutar; ilaç kullanım planını değiştirmez.";

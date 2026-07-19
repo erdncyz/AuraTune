@@ -30,12 +30,16 @@ class GeminiService {
 
             do {
                 let suggestion = try await fetchSuggestion(prompt: prompt, responseLanguage: responseLanguage)
-                if !excludedKeys.contains(suggestion.stableKey) {
+                let availability = await SpotifyService.shared.validateTrack(
+                    title: suggestion.title,
+                    artist: suggestion.artist
+                )
+                if !excludedKeys.contains(suggestion.stableKey), availability != false {
                     return suggestion
                 }
 
                 #if DEBUG
-                print("[AIService] Rejected duplicate suggestion: \(suggestion.stableKey)")
+                print("[AIService] Rejected duplicate or unverified suggestion: \(suggestion.stableKey)")
                 #endif
             } catch {
                 #if DEBUG
@@ -53,24 +57,40 @@ class GeminiService {
         responseLanguage: String = "Turkish",
         songLanguagePreference: SongLanguagePreference = .random
     ) async throws -> SongSuggestion {
-        let prompt = buildMoodPrompt(
-            mood: mood,
-            genres: genres,
-            responseLanguage: responseLanguage,
-            songLanguagePreference: songLanguagePreference
-        )
-        #if DEBUG
-        print("[AIService] Discover request — mood: \(mood)")
-        print("[AIService] Primary: Groq → llama-3.3-70b-versatile")
-        #endif
-        do {
-            return try await fetchFromGroq(prompt: prompt, responseLanguage: responseLanguage)
-        } catch AIError.rateLimited {
+        var lastError: Error?
+
+        for attempt in 1...3 {
+            let prompt = buildMoodPrompt(
+                mood: mood,
+                genres: genres,
+                responseLanguage: responseLanguage,
+                songLanguagePreference: songLanguagePreference
+            )
             #if DEBUG
-            print("[AIService] Groq rate limited (429) → Fallback: Gemini 2.5 Flash Lite")
+            print("[AIService] Discover request — mood: \(mood), attempt: \(attempt)")
             #endif
-            return try await fetchFromGemini(prompt: prompt, responseLanguage: responseLanguage)
+
+            do {
+                let suggestion: SongSuggestion
+                do {
+                    suggestion = try await fetchFromGroq(prompt: prompt, responseLanguage: responseLanguage)
+                } catch {
+                    suggestion = try await fetchFromGemini(prompt: prompt, responseLanguage: responseLanguage)
+                }
+
+                let availability = await SpotifyService.shared.validateTrack(
+                    title: suggestion.title,
+                    artist: suggestion.artist
+                )
+                if availability != false {
+                    return suggestion
+                }
+            } catch {
+                lastError = error
+            }
         }
+
+        throw lastError ?? AIError.badResponse
     }
 
     func generateSongCommentary(
@@ -116,12 +136,18 @@ class GeminiService {
     ) async throws -> [String] {
         let targetGlasses = max(1, Int((dailyGoalLiters / 0.25).rounded()))
         let litersText = String(format: "%.1f", dailyGoalLiters)
+        let varietySeed = Int.random(in: 10_000...99_999)
         let prompt = """
-        Generate exactly \(count) unique, short water drinking motivation messages in \(language).
-        The user's daily target is \(litersText) liters (~\(targetGlasses) glasses). Reflect this exact target naturally in messages.
-        Each message should be 1-2 sentences max.
-        Include a relevant water, health, or nature emoji at the start.
-        Vary the tone: energetic, gentle, scientific, poetic, funny, motivational.
+        Write exactly \(count) polished water-break notification messages in \(language) for a premium wellness app.
+        Variety seed: \(varietySeed).
+        The user's daily plan is \(litersText) liters (~\(targetGlasses) glasses), but mention the exact number in at most 2 messages.
+        Each message must be one natural sentence between 45 and 110 characters.
+        Build a genuinely varied set: calm, warm, lightly playful, focused, poetic, and practical.
+        Cover morning, afternoon, and evening contexts without writing time labels.
+        Do not reuse the same opening words, sentence structure, metaphor, call to action, or emoji.
+        Use an emoji in no more than half of the messages, placed naturally at either end.
+        Avoid generic slogans, exclamation-heavy copy, guilt, pressure, medical claims, detox claims, or promises about energy, skin, metabolism, focus, and weight.
+        Never say that missing water is harmful. Never diagnose or prescribe.
         Return ONLY a valid JSON array of strings with no other text, no markdown, no code blocks:
         ["message1", "message2", ...]
         """
@@ -139,8 +165,9 @@ class GeminiService {
         let requestBody: [String: Any] = [
             "model": "llama-3.3-70b-versatile",
             "messages": [["role": "user", "content": prompt]],
-            "temperature": 1.1,
-            "max_tokens": 1000
+            "temperature": 0.95,
+            "top_p": 0.9,
+            "max_tokens": 1400
         ]
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -170,7 +197,11 @@ class GeminiService {
         guard let url = URL(string: urlString) else { throw URLError(.badURL) }
         let requestBody: [String: Any] = [
             "contents": [["parts": [["text": prompt]]]],
-            "generationConfig": ["temperature": 1.1]
+            "generationConfig": [
+                "temperature": 0.95,
+                "topP": 0.9,
+                "maxOutputTokens": 1400
+            ]
         ]
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -203,11 +234,47 @@ class GeminiService {
         }
         let jsonStr = String(cleaned[start...end])
         guard let jsonData = jsonStr.data(using: .utf8),
-              let array = try? JSONDecoder().decode([String].self, from: jsonData),
-              !array.isEmpty else {
+              let array = try? JSONDecoder().decode([String].self, from: jsonData) else {
             throw AIError.parseFailure
         }
-        return array
+
+        var unique: [String] = []
+        for rawMessage in array {
+            let message = rawMessage
+                .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !message.isEmpty, message.count <= 115 else { continue }
+            guard !unique.contains(where: { waterMessagesAreTooSimilar(message, $0) }) else { continue }
+            unique.append(message)
+            if unique.count == expected { break }
+        }
+
+        guard unique.count >= min(expected, 6) else {
+            throw AIError.parseFailure
+        }
+        return unique
+    }
+
+    private func waterMessagesAreTooSimilar(_ lhs: String, _ rhs: String) -> Bool {
+        let leftTokens = waterMessageTokens(lhs)
+        let rightTokens = waterMessageTokens(rhs)
+        guard !leftTokens.isEmpty, !rightTokens.isEmpty else {
+            return lhs.caseInsensitiveCompare(rhs) == .orderedSame
+        }
+
+        let overlap = leftTokens.intersection(rightTokens).count
+        let total = leftTokens.union(rightTokens).count
+        return Double(overlap) / Double(total) >= 0.68
+    }
+
+    private func waterMessageTokens(_ message: String) -> Set<String> {
+        Set(
+            message
+                .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+                .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+                .map(String.init)
+                .filter { $0.count > 2 }
+        )
     }
 
     func getDailyMix(
@@ -279,8 +346,10 @@ class GeminiService {
         Variety seed: \(seed). Use this to ensure a unique, non-repeated recommendation.
         Pick a song with a \(randomMood) feel.
                 \(songLanguagePreference.promptInstruction)
-        Recommend a DIFFERENT specific song each time — do not repeat popular or obvious choices.
-        Explore deep cuts, hidden gems, or lesser-known tracks when possible.
+        Recommend a DIFFERENT specific song each time.
+        The song and artist MUST be real, correctly spelled, officially released, and available on major streaming services.
+        Never invent a title, artist, collaboration, remix, or release.
+        Prioritize a strong match to the user's favorite genres, balancing trusted favorites with worthwhile discovery.
         \(avoidInstruction)
             SADECE aşağıdaki JSON formatında ve SADECE \(responseLanguage) dilinde SOHBET MESAJI (message) oluşturarak yanıt ver. Mesaj içinde başka dil, alfabe veya yabancı karakter kullanma. Başlık ve sanatçı orijinal kalabilir.
         Please return ONLY in this JSON format:
@@ -372,7 +441,7 @@ class GeminiService {
         let requestBody: [String: Any] = [
             "model": "llama-3.3-70b-versatile",
             "messages": [["role": "user", "content": prompt]],
-            "temperature": 0.9,
+            "temperature": 0.7,
             "max_tokens": 80
         ]
 
@@ -413,7 +482,7 @@ class GeminiService {
             "contents": [["parts": [["text": prompt]]]],
             "generationConfig": [
                 "responseMimeType": "text/plain",
-                "temperature": 0.9
+                "temperature": 0.7
             ]
         ]
 
@@ -473,6 +542,8 @@ class GeminiService {
                 \(songLanguagePreference.promptInstruction)
         Try recommending a track from the \(randomEra) era if it fits the mood.
         Pick a DIFFERENT song each time — avoid repeating the same artist or song. Explore unexpected, creative choices.
+        The song and artist MUST be real, correctly spelled, officially released, and available on major streaming services.
+        Never invent a title, artist, collaboration, remix, or release.
                 SADECE aşağıdaki JSON formatında ve SADECE \(responseLanguage) dilinde SOHBET MESAJI (message) oluşturarak yanıt ver. Mesaj içinde başka dil, alfabe veya yabancı karakter kullanma. Başlık ve sanatçı orijinal kalabilir.
         Please return ONLY in this JSON format:
         {
@@ -494,7 +565,7 @@ class GeminiService {
             "model": "llama-3.3-70b-versatile",
             "messages": [["role": "user", "content": prompt]],
             "response_format": ["type": "json_object"],
-            "temperature": 1.2
+            "temperature": 0.8
         ]
 
         var request = URLRequest(url: url)
@@ -553,7 +624,7 @@ class GeminiService {
             "contents": [["parts": [["text": prompt]]]],
             "generationConfig": [
                 "responseMimeType": "application/json",
-                "temperature": 1.2
+                "temperature": 0.8
             ]
         ]
 

@@ -74,13 +74,6 @@ class SettingsViewModel: ObservableObject {
 
         try await FirebaseManager.shared.saveProfile(updatedProfile)
 
-        // Re-schedule the morning notification at the (possibly new) wake-up time.
-        NotificationManager.shared.scheduleMorningNotification(
-            at: wakeUpTime,
-            suggestion: nil,
-            platform: selectedPlatform
-        )
-
         // Reset originals after save
         originalName = userName
         originalTime = wakeUpTime
